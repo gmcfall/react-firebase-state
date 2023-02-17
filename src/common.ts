@@ -104,8 +104,8 @@ export function startDocListener<
     
         console.log("startDocListener BEFORE", {
             validPath,
-            firebaseApp: !!client.firebaseApp,
-            db: !!db
+            firebaseApp: client.firebaseApp,
+            db
         })
         const collectionRef = collection(db, collectionName, ...collectionKeys);
         console.log("startDocListener AFTER", {validPath})
