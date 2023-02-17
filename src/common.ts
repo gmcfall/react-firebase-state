@@ -102,7 +102,13 @@ export function startDocListener<
         const docId = validPath[validPath.length-1];
         const db = getFirestore(client.firebaseApp);
     
+        console.log("startDocListener BEFORE", {
+            validPath,
+            firebaseApp: !!client.firebaseApp,
+            db: !!db
+        })
         const collectionRef = collection(db, collectionName, ...collectionKeys);
+        console.log("startDocListener AFTER", {validPath})
     
         const q = query(collectionRef, where(documentId(), "==", docId));
 
