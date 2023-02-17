@@ -1,6 +1,6 @@
 {
-  "name": "@gmcfall/rollup-example",
-  "version": "0.1.0",
+  "name": "@gmcfall/react-firebase-state",
+  "version": "0.3.0",
   "main": "build/index.cjs.js",
   "module": "build/index.esm.js",
   "types": "build/index.d.ts",
