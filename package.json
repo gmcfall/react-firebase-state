@@ -1,7 +1,6 @@
 {
   "name": "@gmcfall/rollup-example",
   "version": "0.1.0",
-  "private": true,
   "main": "build/index.cjs.js",
   "module": "build/index.esm.js",
   "types": "build/index.d.ts",
