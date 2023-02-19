@@ -27,6 +27,8 @@ export {
     disownAllLeases
 } from "./functions";
 
+export { releaseEntities } from "./releaseEntities";
+
 export type { ListenerOptions } from "./common";
 
 export type {
