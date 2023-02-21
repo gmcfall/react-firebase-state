@@ -11,7 +11,6 @@ import { hashEntityKey } from "./util";
  * A function that creates a listener for a given document. This function is idempotent: you
  * can call it multiple times with the same arguments, but a listener will be created only on
  * the first call.
- * @param client The EntityClient that manages leases.
  * @param leasee The name of the leasee that is claiming a lease on the watched entity
  * @param path The path to the document to be watched. If any element of the path is `undefined`,
  *      this function does nothing and returns `[idle, undefined, undefined]`.
@@ -47,7 +46,7 @@ export function watchEntity<
     const validPath = validatePath(path);
     const hashValue = validPath ? hashEntityKey(path) : "";
 
-    startDocListener(leasee, client, validPath, hashValue, options);
+    startDocListener(leasee, validPath, hashValue, options);
 
     return lookupEntityTuple<TFinal>(client.cache, hashValue);
 }
@@ -166,7 +165,7 @@ export function fetchEntity<TRaw = unknown, TFinal = TRaw>(
     const validPath = validatePath(path);
     const hashValue = validPath ? hashEntityKey(validPath) : '';
     startDocListener<TRaw, TFinal>(
-        leasee, client, validPath, hashValue, options
+        leasee, validPath, hashValue, options
     )
 
     return lookupEntityTuple<TFinal>(client.cache, hashValue);

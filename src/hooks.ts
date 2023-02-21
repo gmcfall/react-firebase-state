@@ -62,7 +62,7 @@ export function useDocListener<
 
     useEffect( () => {
         startDocListener<TRaw, TFinal>(
-            leasee, client, validPath, hashValue, options
+            leasee, validPath, hashValue, options
         );
 
     }, [leasee, hashValue, client, validPath, options])

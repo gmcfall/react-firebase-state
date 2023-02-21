@@ -75,7 +75,6 @@ export function startDocListener<
     TFinal = TRaw,  // The final type, if a transform is applied
 > (
     leasee: string,
-    client: EntityClient,
     validPath: string[] | null,
     hashValue: string,
     options?: ListenerOptions<TRaw, TFinal>
@@ -84,13 +83,15 @@ export function startDocListener<
         return;
     }
 
-    const lease = client.leases.get(hashValue);
+    
+
+    const lease = entityApi.getClient().leases.get(hashValue);
     const unsubscribe = lease?.unsubscribe;
 
 
     const leaseOptions = options?.leaseOptions;
     if (unsubscribe) {
-        claimLease(client, hashValue, leasee, leaseOptions);
+        claimLease(entityApi.getClient(), hashValue, leasee, leaseOptions);
     } else { 
         
         const transform = options?.transform;
@@ -100,7 +101,7 @@ export function startDocListener<
         const collectionName = validPath[0];
         const collectionKeys = validPath.slice(1, validPath.length-1);
         const docId = validPath[validPath.length-1];
-        const db = getFirestore(client.firebaseApp);
+        const db = getFirestore(entityApi.getClient().firebaseApp);
         const collectionRef = collection(db, collectionName, ...collectionKeys);
     
         const q = query(collectionRef, where(documentId(), "==", docId));
@@ -117,14 +118,14 @@ export function startDocListener<
                             transform(new LeaseeApi(leasee, entityApi), data, validPath) :
                             data;
 
-                        putEntity(client, hashValue, finalData);
+                        putEntity(entityApi.getClient(), hashValue, finalData);
                         break;
                     }
                     case 'removed': {
-                        client.setCache(
+                        entityApi.getClient().setCache(
                             (currentCache: EntityCache) => {
                                 const nextCache = produce(currentCache, draftCache => {
-                                    removeEntity(client, hashValue, draftCache);
+                                    putEntity(entityApi.getClient(), hashValue, null);
                                     if (onRemove) {
                                         const data = change.doc.data() as TRaw;
                                         onRemove(new LeaseeApi(leasee, entityApi), data, validPath);
@@ -141,7 +142,7 @@ export function startDocListener<
         }, error => {
 
             putEntity(
-                client, 
+                entityApi.getClient(), 
                 hashValue, 
                 error
             );
@@ -154,7 +155,7 @@ export function startDocListener<
             
         })
 
-        createLeasedEntity(client, unsubscribe, hashValue, leasee, options?.leaseOptions);
+        createLeasedEntity(entityApi.getClient(), unsubscribe, hashValue, leasee, options?.leaseOptions);
     }
 
 }
@@ -165,9 +166,9 @@ export function lookupEntityTuple<T>(cache: EntityCache, key: string | null) : E
         ((value===undefined && (key===null || !cache.hasOwnProperty(key))) && ["idle", undefined, undefined]) ||
         (value===undefined && ["pending", undefined, undefined]) ||
         (value instanceof Error && ["error", undefined, value as Error]) ||
+        (value===null && ["removed", null, undefined]) ||
         ["success", value as T, undefined]
     )
-    
 }
 
 function putEntity(client: EntityClient, key: string | string[], entity: Entity) {
