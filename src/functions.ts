@@ -1,8 +1,10 @@
+import produce from "immer";
 import { ListenerOptions, lookupEntityTuple, startDocListener, validateKey, validatePath } from "./common";
 import { EntityApi } from "./EntityApi";
-import { EntityClient, claimLease, putEntity, removeLeaseeFromLease } from "./EntityClient";
+import { EntityClient, claimLease, removeLeaseeFromLease } from "./EntityClient";
 import { AUTH_USER } from "./hooks";
 import { Lease } from "./Lease";
+import { setEntity } from "./setEntity";
 import { EntityCache, EntityKey, EntityTuple, LeaseOptions, PathElement } from "./types";
 import { hashEntityKey } from "./util";
 
@@ -83,7 +85,7 @@ export function setLeasedEntity(
 
     const hashValue = toHashValue(key);
     if (hashValue) {
-        putEntity(client, hashValue, value);
+        setEntity(client, hashValue, value);
         let lease = client.leases.get(hashValue);
         if (!lease) {
             lease = new Lease(hashValue);
@@ -93,12 +95,13 @@ export function setLeasedEntity(
     }
 }
 
+
 export function getAuthUser<Type>(client: EntityClient | EntityApi | Object) {
     return getEntity<Type>(client, AUTH_USER);
 }
 
 export function setAuthUser(client: EntityClient, value: unknown) {
-    putEntity(client, AUTH_USER, value);
+    setEntity(client, AUTH_USER, value);
 }
 
 function resolveCache(value: Object) {

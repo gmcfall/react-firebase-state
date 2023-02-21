@@ -1,10 +1,11 @@
 import { collection, documentId, getFirestore, onSnapshot, query, where } from "firebase/firestore";
 import produce from 'immer';
-import { EntityClient, claimLease, createLeasedEntity, removeEntity } from "./EntityClient";
+import { EntityClient, claimLease, createLeasedEntity } from "./EntityClient";
 import { entityApi } from "./components/FirebaseContext/FirebaseContext";
 import { LeaseeApi } from "./LeaseeApi";
 import { Entity, EntityCache, EntityKey, EntityTuple, LeaseOptions, PathElement } from "./types";
 import { hashEntityKey } from "./util";
+import { setEntity } from "./setEntity";
 
 export function validatePath(path: PathElement[]) {
     for (const value of path) {
@@ -118,14 +119,14 @@ export function startDocListener<
                             transform(new LeaseeApi(leasee, entityApi), data, validPath) :
                             data;
 
-                        putEntity(entityApi.getClient(), hashValue, finalData);
+                        setEntity(entityApi, hashValue, finalData);
                         break;
                     }
                     case 'removed': {
                         entityApi.getClient().setCache(
                             (currentCache: EntityCache) => {
                                 const nextCache = produce(currentCache, draftCache => {
-                                    putEntity(entityApi.getClient(), hashValue, null);
+                                    setEntity(entityApi, hashValue, null);
                                     if (onRemove) {
                                         const data = change.doc.data() as TRaw;
                                         onRemove(new LeaseeApi(leasee, entityApi), data, validPath);
@@ -141,11 +142,7 @@ export function startDocListener<
             })
         }, error => {
 
-            putEntity(
-                entityApi.getClient(), 
-                hashValue, 
-                error
-            );
+            setEntity(entityApi, hashValue, error);
 
             const onError = options?.onError;
             if (onError) {
@@ -168,22 +165,5 @@ export function lookupEntityTuple<T>(cache: EntityCache, key: string | null) : E
         (value instanceof Error && ["error", undefined, value as Error]) ||
         (value===null && ["removed", null, undefined]) ||
         ["success", value as T, undefined]
-    )
-}
-
-function putEntity(client: EntityClient, key: string | string[], entity: Entity) {
-    const setCache = client.setCache;
-    const hashValue = Array.isArray(key) ? hashEntityKey(key) : key;
-
-    setCache(
-        (oldCache: EntityCache) => {
-            
-            const newCache = {
-                ...oldCache,
-                [hashValue]: entity
-            }
-            
-            return newCache;
-        }
     )
 }

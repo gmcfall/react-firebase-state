@@ -1,10 +1,11 @@
 import { getAuth, onAuthStateChanged, User } from "firebase/auth";
 import { useContext, useEffect } from "react";
 import { ListenerOptions, lookupEntityTuple, startDocListener, validateKey, validatePath } from "./common";
-import { EntityApi } from "./EntityApi";
-import { EntityClient, createLeasedEntity, putEntity } from "./EntityClient";
 import { entityApi, FirebaseContext } from "./components/FirebaseContext/FirebaseContext";
+import { EntityApi } from "./EntityApi";
+import { createLeasedEntity, EntityClient } from "./EntityClient";
 import { LeaseeApi } from "./LeaseeApi";
+import { setEntity } from "./setEntity";
 import { AuthTuple, EntityKey, EntityTuple, PathElement } from "./types";
 import { hashEntityKey } from "./util";
 
@@ -113,15 +114,15 @@ export function useAuthListener<UserType = User>(options?: AuthOptions<UserType>
                 if (user) {
                     const api = new LeaseeApi(AUTH_USER, entityApi);
                     const data = transform ? transform(api, user) : user;
-                    putEntity(client, AUTH_USER, data);
+                    setEntity(client, AUTH_USER, data);
                 } else {
-                    putEntity(client, AUTH_USER, null);
+                    setEntity(client, AUTH_USER, null);
                     if (onSignedOut) {
                         onSignedOut();
                     }
                 }
             }, (error) => {
-                putEntity(client, AUTH_USER, error);
+                setEntity(client, AUTH_USER, error);
             })
             // Create a `PendingTuple` and add it to the cache
             createLeasedEntity(client, unsubscribe, AUTH_USER, AUTH_USER, AUTH_USER_LEASE_OPTIONS);

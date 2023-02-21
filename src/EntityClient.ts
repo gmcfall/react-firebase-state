@@ -1,7 +1,8 @@
 import { FirebaseApp } from "firebase/app";
 import { Unsubscribe } from "firebase/auth";
 import produce from "immer";
-import {Lease} from "./Lease";
+import { Lease } from "./Lease";
+import { setEntity } from "./setEntity";
 import { EntityCache, EntityClientOptions, LeaseOptions } from "./types";
 
 export function createEntityClient(
@@ -141,7 +142,7 @@ export function createLeasedEntity(
     leasee: string, 
     options?: LeaseOptions
 ) {
-    putEntity(client, key, undefined);
+    setEntity(client, key, undefined);
     let lease = client.leases.get(key);
     if (!lease) {
         lease = new Lease(key, unsubscribe);
@@ -150,28 +151,7 @@ export function createLeasedEntity(
     claimLease(client, key, leasee, options);
 }
 
-/**
- * Put a value into the EntityCache managed by a given EntityClient.
- * @param client The EntityClient that manages the EntityCache. 
- * @param key The hash of the EntityKey under which the entity is stored in the EntityCache
- * @param value The value to be added to the cache
- */
-export function putEntity(
-    client: EntityClient,
-    key: string,
-    value: unknown
-) {
 
-    client.setCache(
-        oldCache => {
-            const nextCache = produce(oldCache, draftCache => {
-                draftCache[key] = value;
-            })
-
-            return nextCache;
-        }
-    )
-}
 
 /**
  * Remove an entity from a given cache.

@@ -29,6 +29,8 @@ export {
 
 export { releaseEntities } from "./releaseEntities";
 
+export { setEntity } from "./setEntity"
+
 export type { ListenerOptions } from "./common";
 
 export type {
