@@ -78,6 +78,9 @@ export interface AuthOptions<Type=User> {
     /** A function that transforms the Firebase user into a different structure */
     transform?: (api: LeaseeApi, user: User) => Type | null | undefined;
 
+    /** A callback invoked if the AuthStateListener throws an error */
+    onError?: (api: LeaseeApi, error: Error) => void;
+
     /** A callback that is invoked when it is known that the user is not signed in */
     onSignedOut?: () => void;
 }
@@ -98,6 +101,7 @@ export interface AuthOptions<Type=User> {
 export function useAuthListener<UserType = User>(options?: AuthOptions<UserType>) : AuthTuple<UserType> {
 
     const transform = options?.transform;
+    const onError = options?.onError;
     const onSignedOut = options?.onSignedOut;
 
     const client = useContext(FirebaseContext);
@@ -123,6 +127,10 @@ export function useAuthListener<UserType = User>(options?: AuthOptions<UserType>
                 }
             }, (error) => {
                 setEntity(client, AUTH_USER, error);
+                if (onError) {
+                    const api = new LeaseeApi(AUTH_USER, entityApi);
+                    onError(api, error);
+                }
             })
             // Create a `PendingTuple` and add it to the cache
             createLeasedEntity(client, unsubscribe, AUTH_USER, AUTH_USER, AUTH_USER_LEASE_OPTIONS);
