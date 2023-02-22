@@ -13,7 +13,7 @@ import { hashEntityKey } from "./util";
 const OUTSIDE = "FirebaseContext was used outside of a provider";
 
 /** The key under which the authenticated user is stored in the EntityCache */
-export const AUTH_USER = 'authUser';
+export const CURRENT_USER = 'currentUser';
 
 /** The lease options for the Firebase Auth user */
 export const AUTH_USER_LEASE_OPTIONS = {cacheTime: Number.POSITIVE_INFINITY};
@@ -111,29 +111,29 @@ export function useAuthListener<UserType = User>(options?: AuthOptions<UserType>
     }
 
     useEffect(() => {
-        const lease = client.leases.get(AUTH_USER);
+        const lease = client.leases.get(CURRENT_USER);
         if (!lease?.unsubscribe) {
             const auth = getAuth(client.firebaseApp);
             const unsubscribe = onAuthStateChanged(auth, (user) => {
                 if (user) {
-                    const api = new LeaseeApi(AUTH_USER, entityApi);
+                    const api = new LeaseeApi(CURRENT_USER, entityApi);
                     const data = transform ? transform(api, user) : user;
-                    setEntity(client, AUTH_USER, data);
+                    setEntity(client, CURRENT_USER, data);
                 } else {
-                    setEntity(client, AUTH_USER, null);
+                    setEntity(client, CURRENT_USER, null);
                     if (onSignedOut) {
                         onSignedOut();
                     }
                 }
             }, (error) => {
-                setEntity(client, AUTH_USER, error);
+                setEntity(client, CURRENT_USER, error);
                 if (onError) {
-                    const api = new LeaseeApi(AUTH_USER, entityApi);
+                    const api = new LeaseeApi(CURRENT_USER, entityApi);
                     onError(api, error);
                 }
             })
             // Create a `PendingTuple` and add it to the cache
-            createLeasedEntity(client, unsubscribe, AUTH_USER, AUTH_USER, AUTH_USER_LEASE_OPTIONS);
+            createLeasedEntity(client, unsubscribe, CURRENT_USER, CURRENT_USER, AUTH_USER_LEASE_OPTIONS);
         }
 
     }, [client, transform, onSignedOut])
@@ -142,7 +142,7 @@ export function useAuthListener<UserType = User>(options?: AuthOptions<UserType>
 }
 
 function lookupAuthTuple<UserType>(client: EntityClient): AuthTuple<UserType> {
-    const entity = client.cache[AUTH_USER];
+    const entity = client.cache[CURRENT_USER];
     
     return (
         entity===undefined      ? ['pending', undefined, undefined] :
@@ -162,7 +162,7 @@ export function useAuthUser<UserType=User>() {
     if (!client) {
         throw new Error(OUTSIDE);
     }
-    return lookupEntityTuple<UserType>(client.cache, AUTH_USER);
+    return lookupEntityTuple<UserType>(client.cache, CURRENT_USER);
 }
 
 export function useEntity<Type=any>(key: EntityKey) {

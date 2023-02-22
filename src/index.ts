@@ -11,7 +11,8 @@ export {
     useDocListener,
     useData,
     useEntity,
-    useEntityApi
+    useEntityApi,
+    CURRENT_USER,
 } from "./hooks";
 
 export type { AuthOptions } from "./hooks";

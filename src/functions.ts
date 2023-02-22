@@ -2,7 +2,7 @@ import produce from "immer";
 import { ListenerOptions, lookupEntityTuple, startDocListener, validateKey, validatePath } from "./common";
 import { EntityApi } from "./EntityApi";
 import { EntityClient, claimLease, removeLeaseeFromLease } from "./EntityClient";
-import { AUTH_USER } from "./hooks";
+import { CURRENT_USER } from "./hooks";
 import { Lease } from "./Lease";
 import { setEntity } from "./setEntity";
 import { EntityCache, EntityKey, EntityTuple, LeaseOptions, PathElement } from "./types";
@@ -97,11 +97,11 @@ export function setLeasedEntity(
 
 
 export function getAuthUser<Type>(client: EntityClient | EntityApi | Object) {
-    return getEntity<Type>(client, AUTH_USER);
+    return getEntity<Type>(client, CURRENT_USER);
 }
 
 export function setAuthUser(client: EntityClient, value: unknown) {
-    setEntity(client, AUTH_USER, value);
+    setEntity(client, CURRENT_USER, value);
 }
 
 function resolveCache(value: Object) {
