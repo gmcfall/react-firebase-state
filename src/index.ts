@@ -1,9 +1,11 @@
 export { EntityClient } from "./EntityClient";
 export type { EntityApi } from "./EntityApi";
-export { Lease } from "./Lease";
+export type { Lease } from "./Lease";
 export { LeaseeApi } from "./LeaseeApi";
 
-export { FirebaseProvider } from "./components/FirebaseContext"
+export { FirebaseProvider } from "./components/FirebaseContext";
+
+export type { FirebaseProviderProps } from "./components/FirebaseContext";
 
 export {
     useAuthListener,
@@ -12,6 +14,7 @@ export {
     useData,
     useEntity,
     useEntityApi,
+    useReleaseAllClaims,
     CURRENT_USER,
 } from "./hooks";
 
@@ -23,22 +26,20 @@ export {
     getAuthUser,
     setAuthUser,
     getEntity,
-    fetchEntity,
-    releaseClaim,
-    disownAllLeases
+    releaseClaim
 } from "./functions";
 
-export { releaseEntities } from "./releaseEntities";
+export { releaseAllClaims } from "./releaseAllClaims";
 
 export { setEntity } from "./setEntity"
 
-export type { ListenerOptions } from "./common";
+export type { DocListenerOptions } from "./common";
 
 export type {
     AuthStatus,
     AuthTuple,
     Entity,
-    EntityCache,
+    Cache,
     EntityClientOptions,
     EntityKey,
     EntityStatus,
@@ -50,5 +51,7 @@ export type {
     PendingTuple,
     SignedInTuple,
     SignedOutTuple,
-    SuccessTuple
+    RemovedTuple,
+    SuccessTuple,
+    Unsubscribe
 } from "./types";

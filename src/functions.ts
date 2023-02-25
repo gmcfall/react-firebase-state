@@ -1,82 +1,74 @@
-import produce from "immer";
-import { ListenerOptions, lookupEntityTuple, startDocListener, validateKey, validatePath } from "./common";
+import { User } from "firebase/auth";
+import { DocListenerOptions, lookupEntityTuple, startDocListener, validatePath } from "./common";
 import { EntityApi } from "./EntityApi";
-import { EntityClient, claimLease, removeLeaseeFromLease } from "./EntityClient";
+import { claimLease, EntityClient, removeLeaseeFromLease } from "./EntityClient";
 import { CURRENT_USER } from "./hooks";
-import { Lease } from "./Lease";
 import { setEntity } from "./setEntity";
-import { EntityCache, EntityKey, EntityTuple, LeaseOptions, PathElement } from "./types";
-import { hashEntityKey } from "./util";
+import { Cache, EntityKey, EntityTuple, LeaseOptions, PathElement } from "./types";
+import { hashEntityKey, toHashValue } from "./util";
 
 
 /**
- * A function that creates a listener for a given document. This function is idempotent: you
- * can call it multiple times with the same arguments, but a listener will be created only on
- * the first call.
+ * A function providing the same functionality as the `useDocListener`
+ * hook but designed for use within `useEffect` and event handlers.
+ * The only difference from `useDocListener` is that you need to pass an {@link EntityApi} 
+ * as the first parameter.
+ * 
+ * See [useDocListener](./useDocListener.html) for usage instructions. The usage of this function
+ * is similar.
+ * 
+ * See also the [AuthOptions](../interfaces/AuthOptions.html#example) for an explicit example showing 
+ * the use of `watchEntity` inside a `transform` handler.
+ * 
+ * @param api An EntityApi instance
  * @param leasee The name of the leasee that is claiming a lease on the watched entity
  * @param path The path to the document to be watched. If any element of the path is `undefined`,
  *      this function does nothing and returns `[idle, undefined, undefined]`.
- * @param options An object encapsulating optional arguments. This object may contain any of the
- *  the following fields:
- *      - `transform`: A function that transforms the raw data to its final form for storage in the local cache.
- *              This function receives three arguments:  a `LeaseeClient`, the raw data value from the 
- *              Firestore document and the path to the document expressed as string array. The function returns 
- *              the final (transformed) data value for storage in the local cache.
- *      - `onRemove`: A callback invoked when the document is removed from Firestore. This function receives three 
- *              arguments:  a `LeaseeClient`, the raw data value from the Firestore document and the path to the 
- *              document expressed as string array. The function has no return value.
- *      - `onError`: A callback invoked if an error occurred while listening to the Firestore document. This
- *              function receives two arguments: a `LeaseeClient`, the `Error` thrown by Firestore and the path
- *              to the document expressed as string array. The function has no return value.
- *      - `leaseOptions`: An object of type `LeaseOptions` encapsulating options for the lease that will be 
- *              created when the data value is stored in the local cache.
+ * @param options options for the document listener
  * 
- * @returns A Tuple describing the entity being watched. This tuple contains three elements:
- *      - The entity status ('idle', 'pending', 'success', or 'error')
- *      - The current data value which may be `null` or `undefined`
- *      - An `Error` object if the status is `error`.
+ * @returns A Tuple describing the entity being watched.
  */
 export function watchEntity<
     TRaw = unknown,
     TFinal = TRaw
 >(
-    client: EntityClient,
+    api: EntityApi,
     leasee: string,
     path: PathElement[],
-    options?: ListenerOptions<TRaw, TFinal>
+    options?: DocListenerOptions<TRaw, TFinal>
 ) {
     const validPath = validatePath(path);
     const hashValue = validPath ? hashEntityKey(path) : "";
 
-    startDocListener(leasee, validPath, hashValue, options);
+    startDocListener<TRaw, TFinal>(api, leasee, validPath, hashValue, options);
 
-    return lookupEntityTuple<TFinal>(client.cache, hashValue);
+    const cache = api.getClient().cache;
+
+    return lookupEntityTuple<TFinal>(cache, hashValue);
 }
 
 
-function toHashValue(key: string | EntityKey) {
-    if (typeof(key) === 'string') {
-        return key;
-    }
-    const validKey = validateKey(key);
-    return validKey ? hashEntityKey(key) : null;
-}
 
 /**
- * Insert or update the data value for some entity in the local cache.
- * This function also creates or updates the caller's lease for that entity.
- * @param client The EntityClient that provides access to the local cache
- * @param leasee The name of the leasee claiming a lease on the entity
- * @param key The key under which the entity shall be stored
- * @param value The data value to be stored in the local cache
- * @param options An object containing the following optional configuration parameters
- *  for the caller's lease...
- *      - `cacheTime`: The minimum number of milliseconds that an abandoned entity can live in the cache.
- *              An abandoned entity is one that has no leasees. Set `cacheTime` to `Number.POSITIVE_INFINITY`
- *              if you want the entity to remain in the cache indefinitely.
+ * Insert or update the data value for some entity in the cache.
+ * 
+ * If a `Lease` for the entity does not already exist, this function
+ * will create one with the given options.
+ * 
+ * This function makes a claim on the entity by adding the specified
+ * leasee into the Lease's ledger.
+ * 
+ * See the [Lease documentation](../classes/Lease.html) for a discussion
+ * about claims.
+ * 
+ * @param api An EntityApi instance
+ * @param leasee The name of the component making a claim on the entity
+ * @param key The key under which the entity is stored
+ * @param value The data value to be stored in the cache
+ * @param options Options for the Lease if a new Lease is created.
  */
 export function setLeasedEntity(
-    client: EntityClient, 
+    api: EntityApi, 
     leasee: string, 
     key: string | EntityKey, 
     value: unknown, 
@@ -85,43 +77,180 @@ export function setLeasedEntity(
 
     const hashValue = toHashValue(key);
     if (hashValue) {
-        setEntity(client, hashValue, value);
-        let lease = client.leases.get(hashValue);
-        if (!lease) {
-            lease = new Lease(hashValue);
-            client.leases.set(hashValue, lease);
-        }
-        claimLease(client, hashValue, leasee, options);
+        setEntity(api, hashValue, value);
+        claimLease(api.getClient(), hashValue, leasee, options);
     }
 }
 
-
-export function getAuthUser<Type>(client: EntityClient | EntityApi | Object) {
-    return getEntity<Type>(client, CURRENT_USER);
+/**
+ * Get information about the authenticated user from the cache.
+ * 
+ * By default, the authenticated user is the `currentUser`
+ * from Firebase Auth, but it may be a custom user object.
+ * 
+ * For a discussion about custom user objects, see the documentation for the
+ * [transform](../interfaces/AuthOptions.html#transform) handler in 
+ * [AuthOptions](../interfaces/AuthOptions.html).
+ * 
+ * #### Example 1
+ * In this example, `getAuthUser` is used inside an event handler.
+ * 
+ * ```typescript
+ *  const api = useEntityApi();
+ * 
+ *  function handleClick() {
+ *      const [userStatus, user, userError] = getAuthUser(api);
+ *      // Do something with the user
+ *  }
+ * ```
+ * 
+ * #### Example 2
+ * In this example, `getAuthUser` is used inside the {@link EntityApi.mutate} 
+ * function.
+ * 
+ * ```typescript
+ *  entityApi.mutate(
+ *      (app: MyAppType) => {
+ *          const [userStatus, user, userError] = getAuthUser(app as Cache);
+ *          // Make changes to client-side data here.
+ *      }
+ *  )
+ * ```
+ * @param entityProvider An EntityApi instance or the Cache.
+ * @typeParam UserType The user type. By default, this is the `User` type from Firebase Auth.
+ *      The data value in the returned EntityTuple is cast to this type.
+ * @returns An EntityTuple for the authenticated user.
+ */
+export function getAuthUser<UserType=User>(entityProvider: EntityApi | Cache) {
+    return getEntity<UserType>(entityProvider, CURRENT_USER);
 }
 
-export function setAuthUser(client: EntityClient, value: unknown) {
-    setEntity(client, CURRENT_USER, value);
+/**
+ * Set the value of the current user in the cache.
+ * 
+ * The value is placed into the cache under the {@link CURRENT_USER} key.
+ * 
+ * This function is rarely used. Typically, applications make changes to the
+ * current user, and let the auth listener automatically update the cache asynchronously.
+ * 
+ * However, if your React application is using a custom user type and latency is an issue,
+ * you can use `setAuthUser` to update the cache immediately as shown in the following example.
+ * 
+ * #### Example 1
+ * In this example, the application defines a custom user type that extends the Firebase user
+ * with a `langCode` property for the user's preferred language. The snippet shows how one
+ * might update `displayName` and `langCode` from a *UserProfileForm*. When the form is
+ * submitted, an event handler uses `setAuthUser` to update the value of the current user 
+ * in the cache immediately.
+ * ```typescript
+ *  interface UserProfileForm {
+ *      currentUser: CustomUserType;
+ *  }
+ *  function UserProfileForm(props: UserProfileForm) {
+ *      const {currentUser} = props;
+ *      const api = useEntityApi();
+ *      const [displayName, setDisplayName] = useState(currentUser.displayName);
+ *      const [langCode, setLangCode] = useState(currentUser.langCode);
+ * 
+ *      function handleSubmit() {
+ *          if (displayName !== currentUser.displayName) {
+ *              const auth = getAuth(api.firebaseApp);
+ *              updateProfile(auth.currentUser, {displayName});
+ *          }
+ *          if (langCode !== currentUser.langCode) {
+ *              const db = getFirestore(api.firebaseApp);
+ *              const docRef = doc(db, "preferences", currentUser.uid);
+ *              updateDoc(docRef, {langCode});
+ *          }
+ * 
+ *          // Update the user object in the cache so it is available immediately.
+ *          const newUser = {...currentUser, displayName, langCode};
+ *          setAuthUser(api, newUser);
+ *      }
+ * 
+ *      // ... The rest of this component's implementation is omitted for brevity ...
+ *  }
+ * ```
+ * For more information about custom user objects, see the documentation for the 
+ * [transform](../interfaces/AuthOptions.html#transform) handler in
+ * [AuthOptions](../interfaces/AuthOptions.html).
+ * 
+ * #### Example 2
+ * As shown below, it is possible to invoke `setAuthUser` from inside the {@link EntityApi.mutate}
+ * method of {@link EntityApi}.
+ * ```typescript
+ *  entityApi.mutate(
+ *      (app: MyCustomAppType) => {
+ * 
+ *          // Make some client-side state changes and create
+ *          // an `updatedUserObject`.
+ * 
+ *          setAuthUser(app as Cache, updatedUserObject);
+ *      }
+ *  )
+ * ```
+ * 
+ * @param entityProvider An EntityApi instance or the Cache
+ * @param value The value for the current user that will be set in the cache.
+ */
+export function setAuthUser(entityProvider: EntityApi | Cache, value: unknown) {
+    setEntity(entityProvider, CURRENT_USER, value);
 }
 
-function resolveCache(value: Object) {
+function resolveCache(value: object) {
     return (
         value.hasOwnProperty('cache') ? (value as EntityClient).cache :
         (value as any).getClient ? (value as EntityApi).getClient().cache :
-        value as EntityCache
+        value as Cache
     )
 }
 
 
 /**
- * Get a tuple describing an entity in the local cache.
- * @param clientOrCache The client that provides access to the cache, or the cache itself
+ * Get information about an entity in the cache.
+ * 
+ * `getEntity` provides the same functionality as [useEntity](./useEntity.html),
+ * except it is designed for use inside `useEffect` and event handlers.
+ * 
+ * #### Example 1
+ * ```typescript
+ *  function SomeComponent({cityId}) {
+ *      const api = useEntityApi();
+ * 
+ *      function handleClick() {
+ *          const path = ["cities", cityId];
+ *          const [cityStatus, city, cityError] = getEntity<City>(api, path); * 
+ *          // Do something with the city information
+ *      }
+ *      // ... The rest of this component's implementation is omitted for brevity ...
+ *  }
+ * ```
+ * &nbsp;
+ * #### Example 2
+ * You can also invoke `getEntity` from within the {@link EntityApi.mutate} transform
+ * method of {@link EntityApi} as shown below.
+ * ```typescript
+ *  entityApi.mutate(
+ *      (app: MyAppType) => {
+ *          // ... Make some client-side state changes ...
+ * 
+ *          const path = ["cities", cityId];
+ *          [city, cityError, cityStatus] = getEntity<City>(app as Cache, path);
+ *          
+ *          // ... Do something with the city information ...
+ *      }
+ *  )
+ * ```
+ * 
+ * @param entityProvider An EntityApi instance or the cache
  * @param entityKey The key under which the entity is stored in the cache
- * @returns A tuple describing the requested entity.
+ * @typeParam Type The entity's type. The data value in the returned EntityTuple is
+ *  cast to this type.
+ * @returns An EnityTuple describing the requested entity.
  */
-export function getEntity<Type>(clientOrCache: EntityClient | EntityApi | Object, key: string | EntityKey) {
+export function getEntity<Type>(entityProvider: EntityApi | Cache, key: string | EntityKey) {
     const hashValue = toHashValue(key);
-    const cache = resolveCache(clientOrCache);
+    const cache = resolveCache(entityProvider);
     return lookupEntityTuple<Type>(cache, hashValue);
 }
 
@@ -133,57 +262,21 @@ export interface TypedClientStateGetter<T> {
     (client: EntityClient): T
 }
 
-
 /**
- * Get a specific entity from the cache, and start a document listener
- * if the entity is not found in the cache. This function is 
- * similar to the `useDocListener` hook, but it is designed for use in
- * event handlers (including HTML DOM events and events triggered by 
- * other document listeners).
+ * Release the claim that a leasee has on a specific entity within the cache
  * 
- * This function has two generic type parameters:
- *  - `TRaw`: The type of the data object in Firestore
- *  - `TFinal`: The final type of the entity if a transform is applied
+ * See the documentation for the [Lease](../classes/Lease.html) class for
+ * a discussion about claims.
  * 
- * @param client The EntityClient that is managing entities
- * @param leasee The name of the leasee making a claim on the entity
- * @param path The path the document in Firestore
- * @param options Options for managaging the entity. This argument is an object 
- *  with the following optional properties:
- *      - transform: A function that transforms raw data from Firestore into a 
- *          a different structure.  This function has the form 
- *          `(client: LeaseeClient, value: TRaw) => TFinal` 
- *      - onRemove: A callback that fires when the listener reports that the Firestore
- *          document has been removed. The callback has the form
- *          `(client: LeaseeClient, data: TRaw) => void`
- * @returns An EntityTuple describing the requested entity
- */
-export function fetchEntity<TRaw = unknown, TFinal = TRaw>(
-    client: EntityClient,
-    leasee: string,
-    path: PathElement[], 
-    options?: ListenerOptions<TRaw, TFinal>
-) : EntityTuple<TFinal> {
-
-    const validPath = validatePath(path);
-    const hashValue = validPath ? hashEntityKey(validPath) : '';
-    startDocListener<TRaw, TFinal>(
-        leasee, validPath, hashValue, options
-    )
-
-    return lookupEntityTuple<TFinal>(client.cache, hashValue);
-}
-
-/**
- * Release the claim that a leasee has on a specific entity within the local cache
- * @param client EntityClient The EntityClient that manages leases and entities
+ * @param api An EntityApi instance
  * @param leasee The name of the leasee
- * @param key The EntityKey under which the entity is stored in the local cache
+ * @param key The key under which the entity is stored in the cache
  */
-export function releaseClaim(client: EntityClient, leasee: string, key: EntityKey) {
+export function releaseClaim(api: EntityApi, leasee: string, key: string | EntityKey) {
 
-    if (validateKey(key)) {
-        const hashValue = hashEntityKey(key);
+    const hashValue = toHashValue(key);
+    if (hashValue !== null) {
+        const client = api.getClient();
         const lease = client.leases.get(hashValue);
         if (lease) {
             removeLeaseeFromLease(client, lease, leasee);
@@ -197,10 +290,5 @@ export function releaseClaim(client: EntityClient, leasee: string, key: EntityKe
             }
         }
     }
-}
-
-
-export function disownAllLeases(api: EntityApi, leasee: string) {
-    api.getClient().disownAllLeases(leasee);
 }
 

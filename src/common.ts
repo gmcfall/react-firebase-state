@@ -1,11 +1,10 @@
 import { collection, documentId, getFirestore, onSnapshot, query, where } from "firebase/firestore";
 import produce from 'immer';
-import { EntityClient, claimLease, createLeasedEntity } from "./EntityClient";
-import { entityApi } from "./components/FirebaseContext/FirebaseContext";
+import { EntityApi } from "./EntityApi";
+import { claimLease, createLeasedEntity } from "./EntityClient";
 import { LeaseeApi } from "./LeaseeApi";
-import { Entity, EntityCache, EntityKey, EntityTuple, LeaseOptions, PathElement } from "./types";
-import { hashEntityKey } from "./util";
 import { setEntity } from "./setEntity";
+import { Cache, EntityTuple, LeaseOptions, PathElement } from "./types";
 
 export function validatePath(path: PathElement[]) {
     for (const value of path) {
@@ -16,18 +15,6 @@ export function validatePath(path: PathElement[]) {
     }
 
     return path as string[];
-}
-
-export function validateKey(key: EntityKey) {
-    if (!key) {
-        return null;
-    }
-    for (const value of key) {
-       if (!isValid(value)) {
-        return null;
-       }
-    }
-    return key;
 }
 
 /**
@@ -42,31 +29,18 @@ export class IncompatibleIdentityProviderError extends Error {
     }
 }
 
-function isValid(value: unknown) {
 
-    if (value === undefined) {
-        return false;
-    }
-
-    if (typeof value === 'object') {
-        if (value) {
-            const obj = value as any;
-            for (const key in obj) {
-                if (!isValid(obj[key])) {
-                    return false;
-                }
-            }
-        }
-    }
-    
-
-    return true;
-}
-
-
-export interface ListenerOptions<TRaw, TFinal=TRaw> {
-    transform?: (api: LeaseeApi, value: TRaw, path: string[]) => TFinal;
-    onRemove?: (api: LeaseeApi, value: TRaw, path: string[]) => void;
+/**
+ * Options passed to the [useDocListener](../functions/useDocListener.html) hook.
+ * 
+ * @typeParam TServer The type of data stored in the Firebase document.
+ * @typeParam TFinal The type of data returned by the `transform` handler, if any.
+ *      If no `transform` handler is defined, this template parameter defaults to 
+ *      the `TServer` type.
+ */
+export interface DocListenerOptions<TServer, TFinal=TServer> {
+    transform?: (api: LeaseeApi, serverData: TServer, path: string[]) => TFinal;
+    onRemove?: (api: LeaseeApi, serverData: TServer, path: string[]) => void;
     onError?: (api: LeaseeApi, error: Error, path: string[]) => void;
     leaseOptions?: LeaseOptions;
 }
@@ -75,10 +49,11 @@ export function startDocListener<
     TRaw = unknown, // The raw type stored in Firestore
     TFinal = TRaw,  // The final type, if a transform is applied
 > (
+    entityApi: EntityApi,
     leasee: string,
     validPath: string[] | null,
     hashValue: string,
-    options?: ListenerOptions<TRaw, TFinal>
+    options?: DocListenerOptions<TRaw, TFinal>
 ) {
     if (!validPath) {
         return;
@@ -124,7 +99,7 @@ export function startDocListener<
                     }
                     case 'removed': {
                         entityApi.getClient().setCache(
-                            (currentCache: EntityCache) => {
+                            (currentCache: Cache) => {
                                 const nextCache = produce(currentCache, draftCache => {
                                     setEntity(entityApi, hashValue, null);
                                     if (onRemove) {
@@ -157,7 +132,7 @@ export function startDocListener<
 
 }
 
-export function lookupEntityTuple<T>(cache: EntityCache, key: string | null) : EntityTuple<T> {
+export function lookupEntityTuple<T>(cache: Cache, key: string | null) : EntityTuple<T> {
     const value = key === null ? undefined : cache[key];
     return (
         ((value===undefined && (key===null || !cache.hasOwnProperty(key))) && ["idle", undefined, undefined]) ||

@@ -1,3 +1,4 @@
+import { Lease } from "./Lease";
 
 export type Entity = unknown;
 
@@ -33,20 +34,30 @@ export type PathElement = string | undefined;
 
 export type Unsubscribe = () => void;
 
-export type EntityCache = Record<string, Entity>;
+export type Cache = Record<string, Entity>;
 
 export type EntityKey = readonly unknown[];
 
-export interface EntityClientOptions {
+/**
+ * Options for configuring a [Lease](../classes/Lease.html)
+ */
+export interface LeaseOptions {
 
     /** 
-     * The minimum number of milliseconds that an abandoned entity can live in the cache.
-     * An abandoned entity is one that has no leasees.
+     * The number of milliseconds that an abandoned entity can live in the cache.
+     * For more information, see the discussion of abandoned entities in
+     * the [Lease class documentation](../classes/Lease.html)
      */
-    cacheTime: number;
+    abandonTime?: number;
 }
+/**
+ * Options for configuring the [EntityClient](../classes/EntityClient.html)
+ * Currently, these options consist of default values used when configuring
+ * Leases.
+ */
+export interface EntityClientOptions extends LeaseOptions {
 
-export type LeaseOptions = Partial<EntityClientOptions>;
+}
 
 export interface ErrorInfo {
     message: string;

@@ -1,10 +1,11 @@
 import produce from "immer";
-import {EntityApi} from "./EntityApi";
-import {EntityClient} from "./EntityClient";
+import { EntityApi } from "./EntityApi";
+import { EntityClient } from "./EntityClient";
 
 const NOT_INITIALIZED = "EntityClient not initialized";
 
 export class MutableEntityApi implements EntityApi {
+
     
     private client?: EntityClient;
 
@@ -12,7 +13,15 @@ export class MutableEntityApi implements EntityApi {
         this.mutate = this.mutate.bind(this);
     }
 
-    mutate<T>(recipe: (state: T) => void) {
+    get firebaseApp() {
+        const client = this.client;
+        if (!client) {
+            throw new Error(NOT_INITIALIZED)
+        }
+        return client.firebaseApp;
+    }
+
+    mutate<T>(mutator: (state: T) => void) {
         const client = this.client;
         if (!client) {
             throw new Error(NOT_INITIALIZED)
@@ -20,7 +29,7 @@ export class MutableEntityApi implements EntityApi {
         
         client.setCache(
             oldCache => {
-                return produce(oldCache, draft => recipe(draft as T));
+                return produce(oldCache, draft => mutator(draft as T));
             }
         )
     }

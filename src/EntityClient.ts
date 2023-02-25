@@ -2,13 +2,16 @@ import { FirebaseApp } from "firebase/app";
 import { Unsubscribe } from "firebase/auth";
 import produce from "immer";
 import { Lease } from "./Lease";
+import { MutableEntityApi } from "./MutableEntityApi";
 import { setEntity } from "./setEntity";
-import { EntityCache, EntityClientOptions, LeaseOptions } from "./types";
+import { Cache, EntityClientOptions, LeaseOptions } from "./types";
+
+const DEFAULT_ABANDON_TIME = 300000;
 
 export function createEntityClient(
     firebaseApp: FirebaseApp,
-    cache: EntityCache,
-    setCache: React.Dispatch<React.SetStateAction<EntityCache>>,
+    cache: Cache,
+    setCache: React.Dispatch<React.SetStateAction<Cache>>,
     options?: EntityClientOptions
 ) {
     return new EntityClient(
@@ -16,95 +19,127 @@ export function createEntityClient(
         cache,
         setCache,
         new Map<string, Lease>(),
-        new Set<Lease>(),
         new Map<string, Set<Lease>>(),
+        new MutableEntityApi(),
         options
     )
 }
 
-export function updateEntityClient(client: EntityClient, cache: EntityCache) {
+export function updateEntityClient(client: EntityClient, cache: Cache) {
     return (cache === client.cache) ? client : new EntityClient(
         client.firebaseApp,
         cache,
         client.setCache,
         client.leases,
-        client.abandonedLeases,
         client.leaseeLeases,
+        client.api,
         client.options
     )
 }
 
+/**
+ * A class responsible for managing the local cache of entities and
+ * any leases associated with those entities.
+ * 
+ * There is one active EntityClient in an app at a time.
+ * If new entities are added to, removed from, or updated in the cache,
+ * then a new EntityClient will be created during the next render cycle.
+ * 
+ * Applications do not use the `EntityClient` directly. Instead,
+ * they use an [EntityApi](../interfaces/EntityApi.html) instance.
+ * The EntityApi uses the client internally to do its work.
+ * 
+ * #### Cache
+ * 
+ * There is one, application-wide cache that stores server-side and client-side 
+ * entities. The EntityClient manages this cache.
+ * 
+ * #### Leases
+ * Each entity within the cache *may* be governed by a {@link Lease} which dictates 
+ * when the entity should be evicted from the cache. The EntityClient manages the 
+ * leases and enforces their eviction policies.
+ * 
+ * See the {@link Lease | Lease class documentation} for details about 
+ * how to use leases.
+ */
 export class EntityClient {
 
-    /** The FirebaseApp that will be used to fetch documents */
+    /** 
+     * The FirebaseApp used to access Firebase Auth and Firestore. 
+     */
     readonly firebaseApp: FirebaseApp;
 
-    /** The function used to set a new revision of the cache */
-    readonly setCache: React.Dispatch<React.SetStateAction<EntityCache>>;
+    /** 
+     * The function used to set a new revision of the cache
+     * @ignore
+     */
+    readonly setCache: React.Dispatch<React.SetStateAction<Cache>>;
     
-    /** The current state of the cache */
-    readonly cache: EntityCache;
-
-    /** A Map where the key is the hash of an EntityKey and the value is the Lease for the entity */
-    readonly leases: Map<string, Lease>;
+    /** 
+     * The current state of the cache 
+     * @ignore
+     */
+    readonly cache: Cache;
 
     /** 
-     * A Map where the key is the hash of an EntityKey and the value is a Lease that has been abandonded,
-     * i.e. the Lease has leasees. This map allows for quick garbage collection.
+     * A Map where the key is the hash of an EntityKey and the value is the Lease for the entity
+     * @ignore
      */
-    readonly abandonedLeases: Set<Lease>;
+    readonly leases: Map<string, Lease>;
 
     /**
      * A Map where the key is the name for a leasee, and the value is the set of
-     * Leases owned by the leasee.
+     * Leases owned by the leasee. This is used when releasing all claims held by the leasee.
+     * @ignore
      */
     readonly leaseeLeases: Map<string, Set<Lease>>;
 
-    /** Options for managing expiry of entities in the cache */
+    /** 
+     * The EntityApi used by the application 
+     * @ignore
+     */
+    api: MutableEntityApi;
+
+    /** 
+     * Options for managing expiry of entities in the cache.
+     * If the `abandonTime` property is not configured explicitly, a default
+     * of 5 minutes will be used as the `abandonTime` value.
+     */
     options: EntityClientOptions;
 
+    /** @ignore */
     constructor(
         firebaseApp: FirebaseApp,
-        cache: EntityCache,
-        setCache: React.Dispatch<React.SetStateAction<EntityCache>>,
+        cache: Cache,
+        setCache: React.Dispatch<React.SetStateAction<Cache>>,
         leases: Map<string, Lease>,
-        abandonedLeases: Set<Lease>,
         leaseeLeases: Map<string, Set<Lease>>,
+        api: MutableEntityApi,
         options?: EntityClientOptions
     ) {
         this.firebaseApp = firebaseApp;
         this.cache = cache;
         this.setCache = setCache;
         this.leases = leases;
-        this.abandonedLeases = abandonedLeases;
         this.leaseeLeases = leaseeLeases;
-        this.options = options || {cacheTime: 300000};
-        
-        const self = this;
-
-        setInterval(() => {
-            const now = Date.now();
-            const cacheTime = self.options.cacheTime;
-
-            let mutated = false;
-            const nextCache = produce(this.cache, draftCache => {
-                self.abandonedLeases.forEach((lease) => {
-                    if (lease.leasees.size===0 && (now > expiryTime(lease, cacheTime))) {
-                        mutated = true;
-                        removeEntity(this, lease.key, draftCache);
-                    }
-                })
-            })
-            if (mutated) {
-                this.setCache(nextCache);
-            }
-
-        }, self.options.cacheTime)
+        this.api = api;
+        this.options = options || {};
+        api.setClient(this);        
     }
+
+    /**
+     * @ignore
+     */
+    getAbandonTime(lease: Lease) {
+        return lease.options?.abandonTime || this.options.abandonTime || DEFAULT_ABANDON_TIME;
+    }
+
 
     /**
      * Remove a given leasee from all leases that it currently claims.
      * @param leasee The name of the leasee
+     * 
+     * @ignore
      */
     disownAllLeases(leasee: string) {
         const set = this.leaseeLeases.get(leasee);
@@ -118,12 +153,43 @@ export class EntityClient {
 }
 
 export function removeLeaseeFromLease(client: EntityClient, lease: Lease, leasee: string) {
+
     lease.removeLeasee(leasee);
-    if (
-        (lease.leasees.size===0) &&
-        !client.abandonedLeases.has(lease)
-    ) {
-        client.abandonedLeases.add(lease);
+   
+    if (lease.ledger.size===0) {
+
+        // Create a timer to evict the entity after the `abandonTime` as elapsed.
+
+        const abandonTime = client.getAbandonTime(lease);
+        lease.evictionToken = setTimeout(() => {
+
+            if (lease.ledger.size === 0) {
+                const entityKey = lease.entityKey;
+
+                // If there is a listener for entity state changes, then
+                // cancel that listener.
+
+                if (lease.unsubscribe) {
+                    lease.unsubscribe();
+                }
+
+                // Remove the lease
+                client.leases.delete(entityKey);                
+
+                // Remove the entity from the cache
+                client.setCache(
+                    oldCache => {
+                        if (oldCache[entityKey]) {
+                            const newCache = {...oldCache};
+                            delete newCache[entityKey];
+                            return newCache;
+                        }
+                        return oldCache;
+                    }
+                )
+            }
+
+        }, abandonTime)
     }
 }
 
@@ -142,42 +208,9 @@ export function createLeasedEntity(
     leasee: string, 
     options?: LeaseOptions
 ) {
-    setEntity(client, key, undefined);
-    let lease = client.leases.get(key);
-    if (!lease) {
-        lease = new Lease(key, unsubscribe);
-        client.leases.set(key, lease);
-    }
-    claimLease(client, key, leasee, options);
-}
-
-
-
-/**
- * Remove an entity from a given cache.
- * @param key The hash of the key under which the entity is stored in the cache
- * @param cache The cache containing the entity
- */
-export function removeEntity(client: EntityClient, key: string, cache: EntityCache) {
-    const entity = cache[key];
-    const lease = client.leases.get(key);
-    if (entity) {
-        const unsubscribe = lease?.unsubscribe;
-        if (unsubscribe) {
-            unsubscribe();
-        }
-        delete cache[key];
-    }
-    if (lease) {
-        lease.leasees.forEach(leasee => {
-            const set = client.leaseeLeases.get(leasee);
-            if (set) {
-                set.delete(lease);
-            }
-        })
-        client.abandonedLeases.delete(lease);
-    }
-    client.leases.delete(key);
+    setEntity(client.api, key, undefined);
+    const lease = claimLease(client, key, leasee, options);
+    lease.unsubscribe = unsubscribe;
 }
 
 
@@ -185,13 +218,10 @@ export function claimLease(client: EntityClient, entityKey: string, leasee: stri
 
     let lease = client.leases.get(entityKey);
     if (!lease) {
-        lease = new Lease(entityKey);
+        lease = new Lease(entityKey, options);
         client.leases.set(entityKey, lease);
     }
-    if (!lease.leasees.has(leasee)) {
-        if (client.abandonedLeases.has(lease)) {
-            client.abandonedLeases.delete(lease);
-        }
+    if (!lease.ledger.has(leasee)) {
         lease.addLeasee(leasee);
         let set = client.leaseeLeases.get(leasee);
         if (!set) {
@@ -202,18 +232,5 @@ export function claimLease(client: EntityClient, entityKey: string, leasee: stri
             set.add(lease);
         }
     }
-    if (lease.options !== options) {
-        if (options) {
-            lease.options = options;
-        } else if (lease.options) {
-            delete lease.options;
-        }
-    }
-}
-
-function expiryTime(lease: Lease, cacheTime: number) {
-    const options = lease.options;
-    const abandonTime = lease.abandonTime;
-    const extraTime = options?.cacheTime || cacheTime;
-    return abandonTime + extraTime;
+    return lease;
 }

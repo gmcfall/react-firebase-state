@@ -1,69 +1,124 @@
 import { getAuth, onAuthStateChanged, User } from "firebase/auth";
 import { useContext, useEffect } from "react";
-import { ListenerOptions, lookupEntityTuple, startDocListener, validateKey, validatePath } from "./common";
-import { entityApi, FirebaseContext } from "./components/FirebaseContext/FirebaseContext";
+import { DocListenerOptions, lookupEntityTuple, startDocListener, validatePath } from "./common";
+import { FirebaseContext } from "./components/FirebaseContext/FirebaseContext";
 import { EntityApi } from "./EntityApi";
 import { createLeasedEntity, EntityClient } from "./EntityClient";
 import { LeaseeApi } from "./LeaseeApi";
+import { releaseAllClaims } from "./releaseAllClaims";
 import { setEntity } from "./setEntity";
 import { AuthTuple, EntityKey, EntityTuple, PathElement } from "./types";
-import { hashEntityKey } from "./util";
-
-/** The error message when useContext(FirebaseContext) returns `undefined` */
-const OUTSIDE = "FirebaseContext was used outside of a provider";
+import { hashEntityKey, validateKey } from "./util";
 
 /** The key under which the authenticated user is stored in the EntityCache */
 export const CURRENT_USER = 'currentUser';
 
 /** The lease options for the Firebase Auth user */
-export const AUTH_USER_LEASE_OPTIONS = {cacheTime: Number.POSITIVE_INFINITY};
+export const AUTH_USER_LEASE_OPTIONS = {abandonTime: Number.POSITIVE_INFINITY};
 
 /**
  * Use a snapshot listener to retrieve data from a Firestore document.
- * @param leasee The name of the component that is leasing the data to be retrieved.
+ * 
+ * #### Example 1
+ * This example illustrates basic usage without any optional parameters.
+ * It assumes you have a Firestore collection named "cities" that contains
+ * documents whose data matches the `City` type.
+ * ```typescript
+ *  interface CityComponentProps {
+ *      cityId: string;
+ *  }
+ *  function CityComponent(props: CityComponentProps) {
+ *      const {cityId} = props;
+ * 
+ *      const [cityStatus, city, cityError] = useDocListener<City>(
+ *          "CityComponent", ["cities", cityId]
+ *      );
+ * 
+ *      useReleaseAllClaims("CityComponent");
+ * 
+ *      switch (cityStatus) {
+ *          case "pending":
+ *              // The document has not yet been received from Firestore
+ *              // The `city` and `cityError` variables are undefined
+ *              break;
+ * 
+ *          case "removed":
+ *              // The document was removed from Firestore.
+ *              // `city` is null.
+ *              // `cityError` is undefined.
+ *              break;
+ * 
+ *          case "error":
+ *              // An error occurred while fetching the document from Firestore.
+ *              // `city` is undefined.
+ *              // `cityError` contains the Error thrown by Firestore.
+ *              break;
+ * 
+ *          case "success":
+ *              // The document was successfully retrieved from Firestore.
+ *              // `city` contains the document data cast as the `City` type.
+ *              // `cityError` is undefined.
+ *              break;
+ *      }
+ *  }
+ * ```
+ * This example is just a rough skeleton.  A real solution would return an
+ * appropriate component for each case in the switch statement.
+ * 
+ * #### Example 2
+ * You can pass optional parameters to `useDocListener` as shown below.
+ * ```typescript 
+ *      const [cityStatus, city, cityError] = useDocListener(
+ *          "SomeComponent", ["cities", cityId], {
+ *              transform: cityTransform,
+ *              onRemove: handleCityRemove,
+ *              onError: handleCityError,
+ *              leaseOptions: {abandonTime: 120000}
+ *          }
+ *      );
+ * ```
+ * When a `transform` handler is defined, you don't need to specify the `TServer` template
+ * parameter because the Typescript complier can infer its value.
+ * 
+ * See {@link DocListenerOptions} for more information about these optional parameters.
+ * 
+ * See [useReleaseAllClaims](../functions/useReleaseAllClaims.html) for a discussion about the
+ * importance of releasing claims to avoid memory leaks.
+ * 
+ * @param leasee The name of the component.
+ * 
+ * The `useDocListener` hook creates a `Lease` for the entity if one does not already
+ * exist, and it makes claim on behalf of the client by inserting the value of the
+ * `leasee` parameter into the Lease's ledger.
+ * 
+ * See the [Lease class documentation](../classes/Lease.html) for more information about 
+ * making claims.
+ *  
  * @param path The path to the document in Firestore, starting with the name of a collection.
- * @param options An object encapsulating optional arguments. This object may contain any of the
- *  the following fields:
- *      - `transform`: A function that transforms the raw data to its final form for storage in the local cache.
- *              This function receives three arguments:  a `LeaseeClient`, the raw data value from the 
- *              Firestore document and the path to the document expressed as string array. The function returns 
- *              the final (transformed) data value for storage in the local cache.
- *      - `onRemove`: A callback invoked when the document is removed from Firestore. This function receives three 
- *              arguments:  a `LeaseeClient`, the raw data value from the Firestore document and the path to the 
- *              document expressed as string array. The function has no return value.
- *      - `onError`: A callback invoked if an error occurred while listening to the Firestore document. This
- *              function receives two arguments: a `LeaseeClient`, the `Error` thrown by Firestore and the path
- *              to the document expressed as string array. The function has no return value.
- *      - `leaseOptions`: An object of type `LeaseOptions` encapsulating options for the lease that will be 
- *              created when the data value is stored in the local cache.
- * @returns An array containing three elements. 
- *      - The first element is the status of the entity; one of "idle", "loading", "success", "error".
- *      - If the status is "success", the second element contains the entity data. Otherwise, the second
- *        element is `undefined`.
- *      - If the status is "error", the third element contains the Error object thrown while fetching
- *        processing the entity. Otherwise, the third element is `undefined`.
+ * @param options An object encapsulating optional parameters.
+ * 
+ * @typeParam TServer The type of data stored in the Firestore document
+ * @typeParam TFinal The final type of data to be returned. If a `transform` handler
+ *      is provided in the `options`, then `TFinal` is the type of object returned by
+ *      that handler.  Otherwise, it is the same as `TServer` by default.
  */
 export function useDocListener<
-    TRaw = unknown, // The raw type stored in Firestore
-    TFinal = TRaw,  // The final type, if a transform is applied
+    TServer = unknown,
+    TFinal = TServer,
 >(
     leasee: string,
     path: PathElement[],
-    options?: ListenerOptions<TRaw, TFinal>
+    options?: DocListenerOptions<TServer, TFinal>
 ) : EntityTuple<TFinal> {
 
-    const client = useContext(FirebaseContext);
-
-    if (!client) {
-        throw new Error(OUTSIDE)
-    }
+    const client = useClient();
 
     const validPath = validatePath(path);
     const hashValue = validPath ? hashEntityKey(validPath) : '';
 
     useEffect( () => {
-        startDocListener<TRaw, TFinal>(
-            leasee, validPath, hashValue, options
+        startDocListener<TServer, TFinal>(
+            client.api, leasee, validPath, hashValue, options
         );
 
     }, [leasee, hashValue, client, validPath, options])
@@ -72,31 +127,107 @@ export function useDocListener<
 }
 
 /**
- * Options for managing Firebase Authentication
+ * An object that encapsulates optional event handlers that fire
+ * when the authenticated user's state changes.
  */
 export interface AuthOptions<Type=User> {
-    /** A function that transforms the Firebase user into a different structure */
-    transform?: (api: LeaseeApi, user: User) => Type | null | undefined;
 
-    /** A callback invoked if the AuthStateListener throws an error */
+    /** 
+     * An event handler that fires when the user is initially signed in 
+     * and then later when any of the User properties change.
+     * 
+     * Typically, this handler will transform the supplied `User` object
+     * into a custom structure that merges the Firebase User with data from other
+     * sources.  If the other data is not yet avalable, the `transform` handler 
+     * should return `undefined` to signal that construction of the custom user 
+     * object is pending.
+     * 
+     * The `transform` handler may also be used as a trigger that produces 
+     * side-effects without altering the structure of the user object. In that
+     * case, after triggering the side-effects, the `transform` handler simply 
+     * returns the `user` that was supplied as the second parameter.
+     * 
+     * #### Example
+     * ```typescript
+     *  interface UserPreferences {
+     *      langCode: string; // The user's preferred language
+     *  }
+     * 
+     *  interface CustomUser {
+     *      // Properties from Firebase user
+     *      displayName: string | null;
+     *      email: string | null;
+     *      phoneNumber: string | null;
+     *      photoURL: string | null;
+     *      providerId: string;
+     *      uid: string;
+     *      emailVerified: boolean;
+     *      isAnonymous: boolean;
+     *      metadata: UserMetadata;
+     *      providerData: UserInfo[];
+     *      refreshToken: string;
+     *      tenantId: string | null;
+     *      
+     *      // Custom properties
+     *      langCode: string
+     *  }
+     * 
+     *  function userTransform(api: LeaseeApi, user: User) {
+     * 
+     *      [, preferences, preferencesError] = watchEntity(
+     *          api, api.leasee, ["preferences", user.uid],
+     *          {transform: userPreferencesTransform}
+     *      );
+     * 
+     *      if (preferencesError) {
+     *          throw new Error(
+     *              "Failed to create customUser", {cause: preferencesError}
+     *          );
+     *      }
+     * 
+     *      return preferences ? createCustomUser(user, preferences) : undefined;
+     *  }
+     * 
+     *  function createCustomUser(user: User, preferences: UserPreferences) {
+     *      return {
+     *          ...user.toJson(),
+     *          langCode: preferences.langCode
+     *      } as CustomUser
+     *  }
+     * 
+     *  function userPreferencesTransform(
+     *      api: LeaseeApi, 
+     *      preferences: UserPreferences, 
+     *      path: string[]
+     *  ) {
+     *      const auth = getAuth(api.firebaseApp);
+     *      const user = auth.currentUser;
+     *      const userUid = path[path.length-1];
+     *      if (userUid === user?.uid) {
+     *          const customUser = createCustomUser(user, preferences);
+     *          setAuthUser(api, customUser);
+     *      }
+     *      
+     *      return preferences;
+     *  }
+     * ```
+     */
+    transform?: (api: LeaseeApi, user: User) => Type | undefined;
+
+    /** 
+     * A event handler that fires if an error occurs while listening 
+     * to state changes to the authenticated user. 
+     */
     onError?: (api: LeaseeApi, error: Error) => void;
 
-    /** A callback that is invoked when it is known that the user is not signed in */
-    onSignedOut?: () => void;
+    /** An event handler that fires when it is known that the user is not signed in */
+    onSignedOut?: (api: LeaseeApi) => void;
 }
 
 
 /**
  * 
- * @param options An object with the following properties:
- *      - `transform` A function that transforms the Firebase User into a new type.
- *        This function must have the form `(user: User) => Type | null` or 
- *        `(user: User) => Promise<Type | null>` where `Type` is the
- *        type of object to which the Firebase User has been transformed. The transform may
- *        force the user to signout, in which case it returns (or resolves) to null.
- *      - `onSignedOut` A callback that fires when it is known that the user is not signed in.
- *         This function takes no arguments and has no return value, so the signature of the 
- *         callback is `() => void`.
+ * @param options An object containing optional event handlers
  */
 export function useAuthListener<UserType = User>(options?: AuthOptions<UserType>) : AuthTuple<UserType> {
 
@@ -104,11 +235,9 @@ export function useAuthListener<UserType = User>(options?: AuthOptions<UserType>
     const onError = options?.onError;
     const onSignedOut = options?.onSignedOut;
 
-    const client = useContext(FirebaseContext);
+    const client = useClient();
 
-    if (!client) {
-        throw new Error(OUTSIDE);
-    }
+    const entityApi = client.api;
 
     useEffect(() => {
         const lease = client.leases.get(CURRENT_USER);
@@ -118,15 +247,16 @@ export function useAuthListener<UserType = User>(options?: AuthOptions<UserType>
                 if (user) {
                     const api = new LeaseeApi(CURRENT_USER, entityApi);
                     const data = transform ? transform(api, user) : user;
-                    setEntity(client, CURRENT_USER, data);
+                    setEntity(entityApi, CURRENT_USER, data);
                 } else {
-                    setEntity(client, CURRENT_USER, null);
+                    setEntity(entityApi, CURRENT_USER, null);
                     if (onSignedOut) {
-                        onSignedOut();
+                        const api = new LeaseeApi(CURRENT_USER, entityApi);
+                        onSignedOut(api);
                     }
                 }
             }, (error) => {
-                setEntity(client, CURRENT_USER, error);
+                setEntity(entityApi, CURRENT_USER, error);
                 if (onError) {
                     const api = new LeaseeApi(CURRENT_USER, entityApi);
                     onError(api, error);
@@ -153,24 +283,17 @@ function lookupAuthTuple<UserType>(client: EntityClient): AuthTuple<UserType> {
 }
 
 export function useEntityApi(): EntityApi {
-    return entityApi;
+    const client = useClient();
+    return client.api;
 }
 
 export function useAuthUser<UserType=User>() {
-    const client = useContext(FirebaseContext);
-    
-    if (!client) {
-        throw new Error(OUTSIDE);
-    }
+    const client = useClient();
     return lookupEntityTuple<UserType>(client.cache, CURRENT_USER);
 }
 
 export function useEntity<Type=any>(key: EntityKey) {
-    const client = useContext(FirebaseContext);
-   
-    if (!client) {
-        throw new Error(OUTSIDE);
-    }
+    const client = useClient();
     const validKey = validateKey(key);
     const hashValue = validKey ? hashEntityKey(key) : '';
     return lookupEntityTuple<Type>(client?.cache, hashValue);
@@ -178,12 +301,46 @@ export function useEntity<Type=any>(key: EntityKey) {
 
 export function useData<StateType, ReturnType>(selector: (state: StateType) => ReturnType) {
 
-    const client = useContext(FirebaseContext);
-    
-    if (!client) {
-        throw new Error(OUTSIDE);
-    }
+    const client = useClient();
 
     const state = client.cache as StateType;
     return selector(state);
+}
+
+/**
+ * A hook that releases all claims held by a given component when 
+ * that component unmounts.
+ * 
+ * To avoid memory leaks, this hook should be invoked by all components 
+ * that utilize the [useDocListener](./useDocListener.html) hook.
+ * 
+ * The `useDocListener` hook makes a *claim* on behalf of the component, and hence
+ * the document data will not expire from the cache unless that claim is released.
+ * 
+ * #### Example
+ * ```typescript
+ *      const [cityStatus, city, cityError] = useDocListener<City>(
+ *          "CityComponent", ["cities", cityId]
+ *      );
+ * 
+ *      useReleaseAllClaims("CityComponent");
+ * ```
+ * 
+ * See [Lease](../classes/Lease.html) for more information about claims.
+ * 
+ * @param leasee The name of the component
+ */
+export function useReleaseAllClaims(leasee: string) {
+    
+    const client = useClient();
+    useEffect(() => () => releaseAllClaims(client.api, leasee), []);
+}
+
+function useClient() {
+    const client = useContext(FirebaseContext);
+    if (!client) {
+        throw new Error("FirebaseContext was used outside of a provider");
+    }
+
+    return client;
 }

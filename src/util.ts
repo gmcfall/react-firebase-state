@@ -68,3 +68,45 @@ export function asError(err: any, message: string) {
 
   return new Error(message);
 }
+
+
+export function toHashValue(key: string | EntityKey) {
+  if (typeof(key) === 'string') {
+      return key;
+  }
+  const validKey = validateKey(key);
+  return validKey ? hashEntityKey(key) : null;
+}
+
+export function validateKey(key: EntityKey) {
+  if (!key) {
+      return null;
+  }
+  for (const value of key) {
+     if (!isValid(value)) {
+      return null;
+     }
+  }
+  return key;
+}
+
+function isValid(value: unknown) {
+
+  if (value === undefined) {
+      return false;
+  }
+
+  if (typeof value === 'object') {
+      if (value) {
+          const obj = value as any;
+          for (const key in obj) {
+              if (!isValid(obj[key])) {
+                  return false;
+              }
+          }
+      }
+  }
+  
+
+  return true;
+}
