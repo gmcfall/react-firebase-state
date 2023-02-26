@@ -90,11 +90,16 @@ export function startDocListener<
                     case 'modified': {
                         const data = change.doc.data() as TRaw;
 
-                        const finalData = transform ?
-                            transform(new LeaseeApi(leasee, entityApi), data, validPath) :
-                            data;
+                        try {
+                            const finalData = transform ?
+                                transform(new LeaseeApi(leasee, entityApi), data, validPath) :
+                                data;
+    
+                            setEntity(entityApi, hashValue, finalData);
+                        } catch (transformError) {
+                            setEntity(entityApi, hashValue, transformError);
+                        }
 
-                        setEntity(entityApi, hashValue, finalData);
                         break;
                     }
                     case 'removed': {

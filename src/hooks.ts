@@ -284,8 +284,12 @@ export function useAuthListener<UserType = User>(options?: AuthOptions<UserType>
             const unsubscribe = onAuthStateChanged(auth, (user) => {
                 if (user) {
                     const api = new LeaseeApi(CURRENT_USER, entityApi);
-                    const data = transform ? transform(api, user) : user;
-                    setEntity(entityApi, CURRENT_USER, data);
+                    try {
+                        const data = transform ? transform(api, user) : user;
+                        setEntity(entityApi, CURRENT_USER, data);
+                    } catch (transformError) {
+                        setEntity(entityApi, CURRENT_USER, transformError)
+                    }
                 } else {
                     setEntity(entityApi, CURRENT_USER, null);
                     if (onSignedOut) {
