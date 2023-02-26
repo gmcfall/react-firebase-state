@@ -68,7 +68,7 @@ export const AUTH_USER_LEASE_OPTIONS = {abandonTime: Number.POSITIVE_INFINITY};
  *      }
  *  }
  * ```
- * This example is just a rough skeleton.  A real solution would return an
+ * This example is just a rough skeleton.  A proper implementation would return an
  * appropriate component for each case in the switch statement.
  * 
  * #### Example 2
@@ -264,6 +264,56 @@ export interface AuthOptions<Type=User> {
 
 
 /**
+ * Use a Firestore authentication listener to get information about the current user.
+ * 
+ * #### Example 1
+ * This example illustrates basic usage without any optional parameters.
+ * ```typescript
+ *  function SomeComponent() {
+ *      const [user, userError, userStatus] = useAuthListener();
+ * 
+ *      switch (userStatus) {
+ * 
+ *          case "pending": *          
+ *              // The state of the current user has been requested
+ *              // but a response has not yet been received from Firebase.
+ *              // `user` and `userError` are both undefined.
+ *              break;
+ * 
+ *          case "signedIn":
+ *              // The user has been authenticated.
+ *              // `user` is the the `currentUser` from Firebase Auth.
+ *              // `userError` is undefined.
+ *              break;
+ * 
+ *          case "signedOut":
+ *              // Firebase responded that the user is not currently signed in.
+ *              // `user` is null.
+ *              // `userError` is undefined.
+ *              break;
+ * 
+ *          case "error":
+ *              // An error occurred while fetch the state of the current user.
+ *              // `user` is undefined.
+ *              // `error` is the Error returned by Firebase.
+ *              break;
+ *      }
+ *  }
+ * ```
+ * This example is just a rough skeleton. A proper implementation would return
+ * an appropriate component for each case in the switch statement.
+ * 
+ * #### Example 2
+ * You can pass optional parameters to `useAuthListener` as shown below.
+ * ```typescript
+ *  const [user, userError, userStatus] = useAuthListener({
+ *      transform: userTransform,
+ *      onError: handleUserError,
+ *      onSignedOut: handlUserSignedOut
+ *  })
+ * ```
+ * 
+ * See {@link AuthOptions} for more information about these optional parameters.
  * 
  * @param options An object containing optional event handlers
  */
@@ -329,6 +379,11 @@ export function useEntityApi(): EntityApi {
     return client.api;
 }
 
+/**
+ * Get information about the currently authenticated user.
+ * 
+ * @returns 
+ */
 export function useAuthUser<UserType=User>() {
     const client = useClient();
     return lookupEntityTuple<UserType>(client.cache, CURRENT_USER);
