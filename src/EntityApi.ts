@@ -2,11 +2,32 @@ import { FirebaseApp } from "firebase/app";
 import {EntityClient} from "./EntityClient";
 
 /**
- * An interface that enables many capabilities of the `react-firestore-state`
+ * An interface that enables all the capabilities of the `react-firestore-state`
  * library.
  * 
- * Most capabilities are exposed through functions that accept an `EntityApi` 
- * instance as the first argument. These functions include:
+ * The EntityApi provides:
+ * - The FirebaseApp instance used by the React application.
+ * - A local cache that stores both server-side and client-side data elements. 
+ *   We call these data elements *entities*.
+ * - A collection of [leases](../classes/Lease.html) which dictate when entities 
+ *   are eligible for eviction from the cache. 
+ * 
+ * Most capabilities of the `react-firestore-state` library are exposed through 
+ * hooks and functions that leverage an EntityApi instance to do their work.
+ * 
+ * #### Hooks
+ * The EntityApi supports the following hooks:
+ * - [useAuthListener](../functions/useAuthListener)
+ * - [useAuthUser](../functions/useAuthUser)
+ * - [useDocListener](../functions/useDocListener)
+ * - [useData](../functions/useData)
+ * - [useEntity](../functions/useEntity)
+ * - [useEntityApi](../functions/useEntityApi)
+ * - [useReleaseAllClaims](../functions/useReleaseAllClaims)
+ * 
+ * ### Functions
+ * The following fuctions take an `EntitityApi` instance as the
+ * first argument.
  * - [watchEntity](../functions/watchEntity.html)
  * - [setLeasedEntity](../functions/setLeasedEntity.html)
  * - [getAuthUser](../functions/getAuthUser.html)
@@ -18,11 +39,15 @@ import {EntityClient} from "./EntityClient";
  * These functions also accept the local cache as the first argument so they
  * can be used inside the {@link EntityApi.mutate} method, as discussed below.
  * 
- * #### Usage
+ * #### Getting an EntityApi instance
+ * 
+ * Components invoke the [useEntityApi](../functions/useEntityApi) hook to
+ * get an `EntityApi` instance.
+ * 
+ * #### Using the Cache
  * 
  * There is one, application-wide cache that stores server-side and client-side 
- * entities. The [EntityClient](../classes/EntityClient.html) encapsulates the 
- * cache.  Functions that modify the cache (such as [setAuthUser](../functions/setAuthUser.html),
+ * entities.  Functions that modify the cache (such as [setAuthUser](../functions/setAuthUser.html),
  * [setEntity](../functions/setEntity.html) and
  * [setLeasedEntity](../functions/setLeasedEntity.html)) do not update 
  * the cache immediately. Instead, they submit requests to modify the cache.

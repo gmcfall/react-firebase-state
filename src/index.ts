@@ -1,3 +1,10 @@
+/**
+ * See the {@link EntityApi} interface for an overview of the capabilities
+ * of this library.
+ * 
+ * @packageDocumentation
+ */
+
 export { EntityClient } from "./EntityClient";
 export type { EntityApi } from "./EntityApi";
 export type { Lease } from "./Lease";
