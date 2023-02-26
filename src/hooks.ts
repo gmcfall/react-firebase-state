@@ -37,9 +37,15 @@ export const AUTH_USER_LEASE_OPTIONS = {abandonTime: Number.POSITIVE_INFINITY};
  *      useReleaseAllClaims("CityComponent");
  * 
  *      switch (cityStatus) {
+ *          case "idle" :
+ *              // The path passed to `useDocListener` contains an undefined
+ *              // value, and therefore a document listener was not started
+ *              // `city` and `cityError` are both undefined.
+ *              break;
+ * 
  *          case "pending":
  *              // The document has not yet been received from Firestore
- *              // The `city` and `cityError` variables are undefined
+ *              // The `city` and `cityError` are both undefined
  *              break;
  * 
  *          case "removed":
@@ -66,6 +72,34 @@ export const AUTH_USER_LEASE_OPTIONS = {abandonTime: Number.POSITIVE_INFINITY};
  * appropriate component for each case in the switch statement.
  * 
  * #### Example 2
+ * The second argument to `useDocListener` is the path to the document. 
+ * If any element in the path is `undefined`, then `startDocListener` 
+ * returns an [IdleTuple](../types/IdleTuple.html). This is useful if the path 
+ * depends on other entities that might not be available yet.
+ * 
+ * Suppose, for instance, that your application has documents that store information
+ * about city councillors in a Firestore collection named "councillors".
+ * 
+ * A component that renders information about the councillor and the city
+ * might use document listeners for both entities like this:
+ * ```typescript
+ *  function CouncillorComponent({councillorId}) {
+ *      const [councillor, councillorError, councillorStatus] = 
+ *          useDocListener<Councillor>(
+ *              "CouncillorComponent", ["councillors", councillorId]
+ *          );
+ *      const [city, cityError, cityStatus] = useDocListener<City>(
+ *          "CityComponent", ["cities", councillor?.cityId]
+ *      );
+ * 
+ *      useReleaseAllClaims("CityComponent");
+ * 
+ *      // ...
+ *  }
+ * ```
+ * If the `councillor` value is `undefined`, then `cityStatus` will be "idle".
+ * 
+ * #### Example 3
  * You can pass optional parameters to `useDocListener` as shown below.
  * ```typescript 
  *      const [city, cityError, cityStatus] = useDocListener(
@@ -95,6 +129,10 @@ export const AUTH_USER_LEASE_OPTIONS = {abandonTime: Number.POSITIVE_INFINITY};
  * making claims.
  *  
  * @param path The path to the document in Firestore, starting with the name of a collection.
+ *  Each element in the path is a string or the `undefined` value. The `undefined` value 
+ *  signals that the given path element is not currently available. In this case,
+ *  `startDocListener` returns an [IdleTuple](../types/IdleTuple.html).
+ *  
  * @param options An object encapsulating optional parameters.
  * 
  * @typeParam TServer The type of data stored in the Firestore document
