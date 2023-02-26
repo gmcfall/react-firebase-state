@@ -4,7 +4,10 @@ import { EntityApi } from "./EntityApi";
 import { claimLease, createLeasedEntity } from "./EntityClient";
 import { LeaseeApi } from "./LeaseeApi";
 import { setEntity } from "./setEntity";
-import { Cache, EntityTuple, LeaseOptions, PathElement } from "./types";
+import { AuthTuple, Cache, EntityTuple, LeaseOptions, PathElement } from "./types";
+
+/** The key under which the authenticated user is stored in the EntityCache */
+export const CURRENT_USER = 'currentUser';
 
 export function validatePath(path: PathElement[]) {
     for (const value of path) {
@@ -128,6 +131,17 @@ export function startDocListener<
         createLeasedEntity(entityApi.getClient(), unsubscribe, hashValue, leasee, options?.leaseOptions);
     }
 
+}
+
+export function lookupAuthTuple<UserType>(cache: Cache): AuthTuple<UserType> {
+    const entity = cache[CURRENT_USER];
+    
+    return (
+        entity===undefined      ? [undefined, undefined, 'pending'] :
+        entity===null           ? [null, undefined, 'signedOut'] :
+        entity instanceof Error ? [undefined, entity as Error, 'error'] :
+                                  [entity as UserType, undefined, 'signedIn']
+    )
 }
 
 export function lookupEntityTuple<T>(cache: Cache, key: string | null) : EntityTuple<T> {

@@ -30,6 +30,11 @@ export type AuthTuple<UserType> = (
     ErrorTuple
 )
 
+export type AuthTupleOrIdle<UserType> = (
+    AuthTuple<UserType> |
+    IdleTuple
+)
+
 export type PathElement = string | undefined;
 
 export type Unsubscribe = () => void;

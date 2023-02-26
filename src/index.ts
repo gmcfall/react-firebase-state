@@ -21,8 +21,7 @@ export {
     useData,
     useEntity,
     useEntityApi,
-    useReleaseAllClaims,
-    CURRENT_USER,
+    useReleaseAllClaims
 } from "./hooks";
 
 export type { AuthOptions } from "./hooks";
@@ -40,11 +39,12 @@ export { releaseAllClaims } from "./releaseAllClaims";
 
 export { setEntity } from "./setEntity"
 
-export type { DocListenerOptions } from "./common";
+export type { DocListenerOptions, CURRENT_USER } from "./common";
 
 export type {
     AuthStatus,
     AuthTuple,
+    AuthTupleOrIdle,
     Entity,
     Cache,
     EntityClientOptions,

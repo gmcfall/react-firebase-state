@@ -1,10 +1,9 @@
 import { User } from "firebase/auth";
-import { DocListenerOptions, lookupEntityTuple, startDocListener, validatePath } from "./common";
+import { CURRENT_USER, DocListenerOptions, lookupAuthTuple, lookupEntityTuple, startDocListener, validatePath } from "./common";
 import { EntityApi } from "./EntityApi";
 import { claimLease, EntityClient, removeLeaseeFromLease } from "./EntityClient";
-import { CURRENT_USER } from "./hooks";
 import { setEntity } from "./setEntity";
-import { Cache, EntityKey, EntityTuple, LeaseOptions, PathElement } from "./types";
+import { AuthTupleOrIdle, Cache, EntityKey, EntityTuple, LeaseOptions, PathElement } from "./types";
 import { hashEntityKey, toHashValue } from "./util";
 
 
@@ -121,8 +120,24 @@ export function setLeasedEntity(
  *      The data value in the returned EntityTuple is cast to this type.
  * @returns An EntityTuple for the authenticated user.
  */
-export function getAuthUser<UserType=User>(entityProvider: EntityApi | Cache) {
-    return getEntity<UserType>(entityProvider, CURRENT_USER);
+export function getAuthUser<UserType=User>(entityProvider: EntityApi | Cache): 
+    AuthTupleOrIdle<UserType> 
+{
+    if ("getClient" in entityProvider) {
+        const api = entityProvider as EntityApi;
+        const client = api.getClient();
+        const lease = client.leases.get(CURRENT_USER);
+        if (!lease) {
+            return [undefined, undefined, "idle"];
+        }
+        return lookupAuthTuple<UserType>(client.cache);
+    } else {
+        const cache = entityProvider as Cache;
+        if (!(CURRENT_USER in cache)) {
+            return [undefined, undefined, "idle"];
+        }
+        return lookupAuthTuple(cache);
+    }
 }
 
 /**

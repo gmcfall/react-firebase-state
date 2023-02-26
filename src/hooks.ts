@@ -1,17 +1,15 @@
 import { getAuth, onAuthStateChanged, User } from "firebase/auth";
 import { useContext, useEffect } from "react";
-import { DocListenerOptions, lookupEntityTuple, startDocListener, validatePath } from "./common";
+import { CURRENT_USER, DocListenerOptions, lookupAuthTuple, lookupEntityTuple, startDocListener, validatePath } from "./common";
 import { FirebaseContext } from "./components/FirebaseContext/FirebaseContext";
 import { EntityApi } from "./EntityApi";
-import { createLeasedEntity, EntityClient } from "./EntityClient";
+import { createLeasedEntity } from "./EntityClient";
 import { LeaseeApi } from "./LeaseeApi";
 import { releaseAllClaims } from "./releaseAllClaims";
 import { setEntity } from "./setEntity";
-import { AuthTuple, EntityKey, EntityTuple, PathElement } from "./types";
+import { AuthTuple, AuthTupleOrIdle, Cache, EntityKey, EntityTuple, PathElement } from "./types";
 import { hashEntityKey, validateKey } from "./util";
 
-/** The key under which the authenticated user is stored in the EntityCache */
-export const CURRENT_USER = 'currentUser';
 
 /** The lease options for the Firebase Auth user */
 export const AUTH_USER_LEASE_OPTIONS = {abandonTime: Number.POSITIVE_INFINITY};
@@ -360,18 +358,7 @@ export function useAuthListener<UserType = User>(options?: AuthOptions<UserType>
 
     }, [client, transform, onSignedOut])
        
-    return lookupAuthTuple<UserType>(client);
-}
-
-function lookupAuthTuple<UserType>(client: EntityClient): AuthTuple<UserType> {
-    const entity = client.cache[CURRENT_USER];
-    
-    return (
-        entity===undefined      ? [undefined, undefined, 'pending'] :
-        entity===null           ? [null, undefined, 'signedOut'] :
-        entity instanceof Error ? [undefined, entity as Error, 'error'] :
-                                  [entity as UserType, undefined, 'signedIn']
-    )
+    return lookupAuthTuple<UserType>(client.cache);
 }
 
 export function useEntityApi(): EntityApi {
@@ -384,9 +371,15 @@ export function useEntityApi(): EntityApi {
  * 
  * @returns 
  */
-export function useAuthUser<UserType=User>() {
+export function useAuthUser<UserType=User>(): AuthTupleOrIdle<UserType> {
     const client = useClient();
-    return lookupEntityTuple<UserType>(client.cache, CURRENT_USER);
+
+    const lease = client.leases.get(CURRENT_USER);
+    if (!lease) {
+        return [undefined, undefined, "idle"];
+    }
+    
+    return lookupAuthTuple<UserType>(client.cache);
 }
 
 export function useEntity<Type=any>(key: EntityKey) {
