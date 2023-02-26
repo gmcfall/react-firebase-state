@@ -30,7 +30,7 @@ export const AUTH_USER_LEASE_OPTIONS = {abandonTime: Number.POSITIVE_INFINITY};
  *  function CityComponent(props: CityComponentProps) {
  *      const {cityId} = props;
  * 
- *      const [cityStatus, city, cityError] = useDocListener<City>(
+ *      const [city, cityError, cityStatus] = useDocListener<City>(
  *          "CityComponent", ["cities", cityId]
  *      );
  * 
@@ -68,7 +68,7 @@ export const AUTH_USER_LEASE_OPTIONS = {abandonTime: Number.POSITIVE_INFINITY};
  * #### Example 2
  * You can pass optional parameters to `useDocListener` as shown below.
  * ```typescript 
- *      const [cityStatus, city, cityError] = useDocListener(
+ *      const [city, cityError, cityStatus] = useDocListener(
  *          "SomeComponent", ["cities", cityId], {
  *              transform: cityTransform,
  *              onRemove: handleCityRemove,
@@ -174,7 +174,7 @@ export interface AuthOptions<Type=User> {
      * 
      *  function userTransform(api: LeaseeApi, user: User) {
      * 
-     *      [, preferences, preferencesError] = watchEntity(
+     *      [preferences, preferencesError] = watchEntity(
      *          api, api.leasee, ["preferences", user.uid],
      *          {transform: userPreferencesTransform}
      *      );
@@ -275,10 +275,10 @@ function lookupAuthTuple<UserType>(client: EntityClient): AuthTuple<UserType> {
     const entity = client.cache[CURRENT_USER];
     
     return (
-        entity===undefined      ? ['pending', undefined, undefined] :
-        entity===null           ? ['signedOut', null, undefined] :
-        entity instanceof Error ? ['error', undefined, entity as Error] :
-                                  ['signedIn', entity as UserType, undefined]
+        entity===undefined      ? [undefined, undefined, 'pending'] :
+        entity===null           ? [null, undefined, 'signedOut'] :
+        entity instanceof Error ? [undefined, entity as Error, 'error'] :
+                                  [entity as UserType, undefined, 'signedIn']
     )
 }
 
@@ -319,7 +319,7 @@ export function useData<StateType, ReturnType>(selector: (state: StateType) => R
  * 
  * #### Example
  * ```typescript
- *      const [cityStatus, city, cityError] = useDocListener<City>(
+ *      const [city, cityError, cityStatus] = useDocListener<City>(
  *          "CityComponent", ["cities", cityId]
  *      );
  * 

@@ -5,11 +5,11 @@ export type Entity = unknown;
 
 export type EntityStatus = 'idle' | 'pending' | 'success' | 'removed' | 'error';
 
-export type IdleTuple = ['idle', undefined, undefined];
-export type PendingTuple = ['pending', undefined, undefined];
-export type SuccessTuple<T> = ['success', T, undefined];
-export type ErrorTuple = ['error', undefined, Error];
-export type RemovedTuple = ['removed', null, undefined];
+export type IdleTuple = [undefined, undefined, 'idle'];
+export type PendingTuple = [undefined, undefined, 'pending'];
+export type SuccessTuple<T> = [T, undefined, 'success'];
+export type ErrorTuple = [undefined, Error, 'error'];
+export type RemovedTuple = [null, undefined, 'removed'];
 
 export type EntityTuple<T> = (
     IdleTuple |
@@ -20,8 +20,8 @@ export type EntityTuple<T> = (
 )
 
 export type AuthStatus = 'pending' | 'signedIn' | 'signedOut' | 'error';
-export type SignedInTuple<UserType> = ['signedIn', UserType, undefined];
-export type SignedOutTuple = ['signedOut', null, undefined];
+export type SignedInTuple<UserType> = [UserType, undefined, 'signedIn'];
+export type SignedOutTuple = [null, undefined, 'signedOut'];
 
 export type AuthTuple<UserType> = (
     PendingTuple            |

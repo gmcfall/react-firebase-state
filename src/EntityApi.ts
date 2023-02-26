@@ -57,7 +57,7 @@ import {EntityClient} from "./EntityClient";
  * Consider the following snippet:
  * ```javascript
  *  setEntity(entityApi, "favoriteFruit", {type: "banana", color: "yellow"});
- *  const [, fruit] = getEntity<Fruit>(entityApi, "favoriteFruit");
+ *  const [fruit] = getEntity<Fruit>(entityApi, "favoriteFruit");
  * ```
  * The value of the `fruit` variable returned by `getEntity` is NOT the banana object
  * passed to `setEntity`. Instead, it is whatever value was in the cache 
@@ -70,7 +70,7 @@ import {EntityClient} from "./EntityClient";
  *  entityApi.mutate(
  *      (cache: object) => {
  *          setEntity(cache, "favoriteFruit", {type: "banana", color: "yellow"});
- *          const [, fruit] = getEntity(cache, "favoriteFruit");
+ *          const [fruit] = getEntity(cache, "favoriteFruit");
  *      }
  *  )
  * ```
@@ -129,8 +129,8 @@ export interface EntityApi {
      *  api.mutate(
      *      (app: SampleApp) => {
      *         const cache = app as Cache;
-     *         const [, user] = getAuthUser(cache);
-     *         const [, preferences] = getEntity<UserPreferences>(
+     *         const [user] = getAuthUser(cache);
+     *         const [preferences] = getEntity<UserPreferences>(
      *             cache, ["preferences", user?.uid]
      *         );
      *         if (preferences) {

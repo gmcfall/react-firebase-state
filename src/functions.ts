@@ -99,7 +99,7 @@ export function setLeasedEntity(
  *  const api = useEntityApi();
  * 
  *  function handleClick() {
- *      const [userStatus, user, userError] = getAuthUser(api);
+ *      const [user, userError, userStatus] = getAuthUser(api);
  *      // Do something with the user
  *  }
  * ```
@@ -111,7 +111,7 @@ export function setLeasedEntity(
  * ```typescript
  *  entityApi.mutate(
  *      (app: MyAppType) => {
- *          const [userStatus, user, userError] = getAuthUser(app as Cache);
+ *          const [user, userError, userStatus] = getAuthUser(app as Cache);
  *          // Make changes to client-side data here.
  *      }
  *  )
@@ -219,7 +219,7 @@ function resolveCache(value: object) {
  * 
  *      function handleClick() {
  *          const path = ["cities", cityId];
- *          const [cityStatus, city, cityError] = getEntity<City>(api, path); * 
+ *          const [city, cityError, cityStatus] = getEntity<City>(api, path); * 
  *          // Do something with the city information
  *      }
  *      // ... The rest of this component's implementation is omitted for brevity ...
@@ -248,8 +248,23 @@ function resolveCache(value: object) {
  *  cast to this type.
  * @returns An EnityTuple describing the requested entity.
  */
-export function getEntity<Type>(entityProvider: EntityApi | Cache, key: string | EntityKey) {
+export function getEntity<Type>(entityProvider: EntityApi | Cache, key: string | EntityKey): EntityTuple<Type> {
     const hashValue = toHashValue(key);
+    if (hashValue) {
+        if ("getClient" in entityProvider) {
+            const api = entityProvider as EntityApi;
+            const client = api.getClient();
+            const lease = client.leases.get(hashValue);
+            if (!lease || !lease.unsubscribe) {
+                return [undefined, undefined, "idle"];
+            }
+        } else {
+            const cache = entityProvider as Cache;
+            if (!cache.hasOwnProperty(hashValue)) {
+                return [undefined, undefined, "idle"];
+            }
+        }
+    }
     const cache = resolveCache(entityProvider);
     return lookupEntityTuple<Type>(cache, hashValue);
 }

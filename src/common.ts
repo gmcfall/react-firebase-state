@@ -98,19 +98,12 @@ export function startDocListener<
                         break;
                     }
                     case 'removed': {
-                        entityApi.getClient().setCache(
-                            (currentCache: Cache) => {
-                                const nextCache = produce(currentCache, draftCache => {
-                                    setEntity(entityApi, hashValue, null);
-                                    if (onRemove) {
-                                        const data = change.doc.data() as TRaw;
-                                        onRemove(new LeaseeApi(leasee, entityApi), data, validPath);
-                                    }
-                                })
 
-                                return nextCache;
-                            }
-                        )
+                        setEntity(entityApi, hashValue, null);
+                        if (onRemove) {
+                            const data = change.doc.data() as TRaw;
+                            onRemove(new LeaseeApi(leasee, entityApi), data, validPath);
+                        }
                         break;
                     }
                 }
@@ -135,10 +128,10 @@ export function startDocListener<
 export function lookupEntityTuple<T>(cache: Cache, key: string | null) : EntityTuple<T> {
     const value = key === null ? undefined : cache[key];
     return (
-        ((value===undefined && (key===null || !cache.hasOwnProperty(key))) && ["idle", undefined, undefined]) ||
-        (value===undefined && ["pending", undefined, undefined]) ||
-        (value instanceof Error && ["error", undefined, value as Error]) ||
-        (value===null && ["removed", null, undefined]) ||
-        ["success", value as T, undefined]
+        ((value===undefined && (key===null || !cache.hasOwnProperty(key))) && [undefined, undefined, "idle"]) ||
+        (value===undefined && [undefined, undefined, "pending"]) ||
+        (value instanceof Error && [undefined, value as Error, "error"]) ||
+        (value===null && [null, undefined, "removed"]) ||
+        [value as T, undefined, "success"]
     )
 }
