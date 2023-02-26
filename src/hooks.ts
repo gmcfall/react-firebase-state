@@ -7,7 +7,7 @@ import { createLeasedEntity } from "./EntityClient";
 import { LeaseeApi } from "./LeaseeApi";
 import { releaseAllClaims } from "./releaseAllClaims";
 import { setEntity } from "./setEntity";
-import { AuthTuple, AuthTupleOrIdle, Cache, EntityKey, EntityTuple, PathElement } from "./types";
+import { AuthTuple, AuthTupleOrIdle, EntityKey, EntityTuple, PathElement } from "./types";
 import { hashEntityKey, validateKey } from "./util";
 
 

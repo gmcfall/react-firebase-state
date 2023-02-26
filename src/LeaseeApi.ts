@@ -1,6 +1,7 @@
 import { DocListenerOptions } from "./common";
 import { EntityApi } from "./EntityApi";
-import { AuthOptions, CURRENT_USER, useAuthListener, useDocListener } from "./hooks";
+import { AuthOptions, useAuthListener, useDocListener } from "./hooks";
+import { CURRENT_USER } from "./common";
 
 /**
  * An {@link EntityApi} implementation which encapsulates 
