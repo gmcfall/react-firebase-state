@@ -6,7 +6,7 @@ import {EntityClient} from "./EntityClient";
  * library.
  * 
  * The EntityApi provides:
- * - The FirebaseApp instance used by the React application.
+ * - The FirebaseApp instance used by your React application.
  * - A local cache that stores both server-side and client-side data elements. 
  *   We call these data elements *entities*.
  * - A collection of [leases](../classes/Lease.html) which dictate when entities 
@@ -36,18 +36,41 @@ import {EntityClient} from "./EntityClient";
  * - [setEntity](../functions/setEntity.html)
  * - [releaseClaim](../functions/releaseClaim.html)
  * 
- * These functions also accept the local cache as the first argument so they
- * can be used inside the {@link EntityApi.mutate} method, as discussed below.
+ * Some of these functions also accept the local cache as the first argument so they
+ * can be used inside the {@link EntityApi.mutate} method.
  * 
  * #### Getting an EntityApi instance
  * 
  * Components invoke the [useEntityApi](../functions/useEntityApi) hook to
  * get an `EntityApi` instance.
  * 
+ * 
+ * #### Entity Keys
+ * There is one, application-wide cache that stores server-side and client-side 
+ * entities.
+ * 
+ * The keys for client-side entities in the cache are strings. As a best practice, you 
+ * should use keys that obey the grammar for Javascript 
+ * [identifiers](https://developer.mozilla.org/en-US/docs/Glossary/Identifier) so that
+ * your application can get client-side entities easily via the 
+ * [useData](../functions/useData.html) hook and modify them via the {@link mutate} method.
+ * 
+ * The key for a Firestore document entity in the cache is an array of strings that defines 
+ * the path to that document.  
+ * 
+ * For example, suppose your application has `UserPreference` documents in a Firestore 
+ * collection named "preferences". The key for a `UserPreferences` entity in the 
+ * cache would be an array of the form:
+ * ```javascript
+ *  ["preferences", userUid]
+ * ```
+ * where `userUid` is the document id, which in this case happens to be a user's `uid` value.
+ * 
  * #### Using the Cache
  * 
- * There is one, application-wide cache that stores server-side and client-side 
- * entities.  Functions that modify the cache (such as [setAuthUser](../functions/setAuthUser.html),
+
+ * 
+ * Functions that modify the cache (such as [setAuthUser](../functions/setAuthUser.html),
  * [setEntity](../functions/setEntity.html) and
  * [setLeasedEntity](../functions/setLeasedEntity.html)) do not update 
  * the cache immediately. Instead, they submit requests to modify the cache.
@@ -56,10 +79,14 @@ import {EntityClient} from "./EntityClient";
  * This policy of queuing change requests can lead to some surprising behavior.
  * Consider the following snippet:
  * ```javascript
- *  setEntity(entityApi, "favoriteFruit", {type: "banana", color: "yellow"});
- *  const [fruit] = getEntity<Fruit>(entityApi, "favoriteFruit");
+ *  setEntity(entityApi, ["preferences", userUid], {langCode: "fr"});
+ *  const [preferences, preferencesError, preferencesStatus] = 
+ *      getEntity<UserPreferences>(entityApi, ["preferences", userUid]);
  * ```
- * The value of the `fruit` variable returned by `getEntity` is NOT the banana object
+ * This snippet sets the value of a `UserPreferences` entity and then immediately
+ * gets that entity.
+ * 
+ * The value of the `preferences` variable returned by `getEntity` is NOT the value
  * passed to `setEntity`. Instead, it is whatever value was in the cache 
  * at the beginning of the most recent render cycle.
  * 
@@ -69,19 +96,20 @@ import {EntityClient} from "./EntityClient";
  * ```typescript
  *  entityApi.mutate(
  *      (cache: object) => {
- *          setEntity(cache, "favoriteFruit", {type: "banana", color: "yellow"});
- *          const [fruit] = getEntity(cache, "favoriteFruit");
+ *          setEntity(entityApi, ["preferences", userUid], {langCode: "fr"});
+ *          const [preferences, preferencesError, preferencesStatus] =
+ *              getEntity<UserPreferences>(entityApi, ["preferences", userUid]);
  *      }
  *  )
  * ```
- * In this case, the value of the `fruit` variable WILL be the banana object
+ * In this case, the value of the `preferences` variable WILL be the object
  * passed to the `setEntity` function. The `mutate` function exposes a working 
  * draft of the cache that includes all changes made since the last render cycle.  
  * When you modify the cache inside the `mutate` function those changes are applied 
  * to the draft.
  * 
  * The working draft is set as the new cache state at the beginning of the next render 
- * cycle so that it is available to components.
+ * cycle.
  */
 export interface EntityApi {
 

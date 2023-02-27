@@ -42,7 +42,70 @@ export class IncompatibleIdentityProviderError extends Error {
  *      the `TServer` type.
  */
 export interface DocListenerOptions<TServer, TFinal=TServer> {
-    transform?: (api: LeaseeApi, serverData: TServer, path: string[]) => TFinal;
+
+    /**
+     * A kind of event handler that allows you to transform the
+     *  raw data received from a Firestore document into a different data shape for
+     *  use in your application. This event handler fires when the document is first
+     *  received from firestore and again whenever data in the document is modified.
+     *  Unlike other event handlers, this one returns a value &ndash; the transformed
+     *  document data.
+     * 
+     * #### Example
+     * Suppose a "city" document in Firestore looks like this:
+     * ```javascript
+     *  {
+     *      cityName: "Liverpool",
+     *      councillors: {
+     *          UOcUt: {id: "UOcUt", name: "Pat Moloney",     ward: "Childwall"  },
+     *          PxFNV: {id: "PxFNV", name: "Ellie Byrne",     ward: "Everton"    },
+     *          vQwxK: {id: "vQwxK", name: "Lynnie Hinnigan", ward: "Cressington"}
+     *      }
+     *  }
+     * ```
+     * In this document, councillors are stored in a map indexed by the councillor’s id. 
+     * Let’s suppose that a document having this structure matches the `ServerCity` type.
+     * 
+     * On the client, it might be more convenient to have the councillors in an array sorted 
+     * by name as shown below:
+     * ``` javascript
+     *  {
+     *     id: "dIjZC",
+     *     cityName: "Liverpool",
+     *     councillors: [
+     *         {id: "PxFNV", name: "Ellie Byrne",     ward: "Everton"  },
+     *         {id: "vQwxK", name: "Lynnie Hinnigan", ward: "Cressington"},
+     *         {id: "UOcUt", name: "Pat Moloney"      ward: "Childwall"}
+     *     ]
+     * }
+     * ```
+     * A document having this structure matches the `ClientCity` type.
+     * 
+     * To convert a `ServerCity` into a `ClientCity`, we introduce the following transform.
+     * ```typescript
+     *  function cityTransform(api: LeaseeApi, serverData: ServerCity, path: string[]): ClientCity {
+     *     const councillors = Object.values(serverData.councillors);
+     *     councillors.sort( (a, b) => a.name.localeCompare(b.name) );
+     * 
+     *     return {
+     *         id: path[path.length-1],
+     *         cityName: serverData.cityName,
+     *         councillors
+     *     }
+     * }
+     * ```
+     * The application would then use `cityTransform` as the value of the `transform` handler.
+     * 
+     * @param api A LeaseeApi instance
+     * @param serverData The raw data contained in the Firestore document
+     * @param path The path to the document in Firestore.
+     * @returns The transformed data for storage within the cache, or `undefined` if
+     *   the transformed structure relies on other server-side entities that are pending.
+     * @throws The transform function may throw an Error if it is impossible to create
+     *  the transformed structure due to missing or inconsistent data that it depends upon.
+     *  That error will be stored in the cache.
+     */
+    transform?: (api: LeaseeApi, serverData: TServer, path: string[]) => TFinal | undefined;
     onRemove?: (api: LeaseeApi, serverData: TServer, path: string[]) => void;
     onError?: (api: LeaseeApi, error: Error, path: string[]) => void;
     leaseOptions?: LeaseOptions;
@@ -62,11 +125,8 @@ export function startDocListener<
         return;
     }
 
-    
-
     const lease = entityApi.getClient().leases.get(hashValue);
     const unsubscribe = lease?.unsubscribe;
-
 
     const leaseOptions = options?.leaseOptions;
     if (unsubscribe) {
@@ -76,7 +136,6 @@ export function startDocListener<
         const transform = options?.transform;
         const onRemove = options?.onRemove;
 
-        
         const collectionName = validPath[0];
         const collectionKeys = validPath.slice(1, validPath.length-1);
         const docId = validPath[validPath.length-1];

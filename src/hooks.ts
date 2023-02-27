@@ -382,6 +382,11 @@ export function useAuthUser<UserType=User>(): AuthTupleOrIdle<UserType> {
     return lookupAuthTuple<UserType>(client.cache);
 }
 
+/**
+ * Get information about an entity stored in the cache.
+ * @param key The key under which the entity is stored in the cache
+ * @returns 
+ */
 export function useEntity<Type=any>(key: EntityKey) {
     const client = useClient();
     const validKey = validateKey(key);
@@ -389,6 +394,44 @@ export function useEntity<Type=any>(key: EntityKey) {
     return lookupEntityTuple<Type>(client?.cache, hashValue);
 }
 
+/**
+ * Allows you to extract client-side data from the cache.
+ * 
+ * #### Example
+ * Suppose your application can display alert notifications.
+ * 
+ * You might define a `MyApp` interface for your application's client-side
+ * state like this:
+ * ```typescript * 
+ *  type Severity = "error" | "warning" | "info" | "success";
+ * 
+ *  interface AlertInfo {
+ *      severity: Severity;
+ *      message: string;
+ *  }
+ * 
+ *  interface MyApp {
+ *      alertInfo?: AlertInfo;
+ *  }
+ * ```
+ * Your React components would access the AlertInfo like this: 
+ * ```typescript
+ *  const alertInfo = useData((app: MyApp) => app.alertInfo);
+ * ```
+ * 
+ * Applications use the {@link EntityApi.mutate} method of {@link EntityApi}
+ * to modify client-side state.
+ * 
+ * @param selector A function that extracts data from the cache.
+ * 
+ * @typeParam StateType The type of your application's client-side state. You don't
+ *  need to set this template parameter explicitly; it will be inferred from the selector.
+ * 
+ * @typeParam ReturnType The type of data returned by the `useData` hook. You don't
+ *  need to set this template parameter explicitly; it will be inferred from the selector.
+ * 
+ * @returns The data extracted via the supplied `selector` function.
+ */
 export function useData<StateType, ReturnType>(selector: (state: StateType) => ReturnType) {
 
     const client = useClient();
