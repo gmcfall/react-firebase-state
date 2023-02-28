@@ -2,6 +2,7 @@ import produce from "immer";
 import { toHashValue } from "./util";
 import { EntityApi } from "./EntityApi";
 import { Cache, EntityKey } from "./types";
+import { CURRENT_USER } from "./common";
 
 /**
  * Put a value into the local cache.
@@ -92,6 +93,13 @@ export function setEntity(
         const cache = entityProvider as any;
         cache[hashValue] = value;
     }
-    
+}
 
+/**
+ * Put a custom user entity into the cache.
+ * @param entityProvider An EntityApi instance or the cache
+ * @param customUser The custom user entity
+ */
+export function setCurrentUser(entityProvider: EntityApi | Cache, customUser: unknown) {
+    setEntity(entityProvider, CURRENT_USER, customUser);
 }

@@ -36,7 +36,7 @@ export {
 
 export { releaseAllClaims } from "./releaseAllClaims";
 
-export { setEntity } from "./setEntity"
+export { setEntity, setCurrentUser } from "./setEntity"
 
 export type { DocListenerOptions, CURRENT_USER } from "./common";
 
