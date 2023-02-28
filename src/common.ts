@@ -4,7 +4,7 @@ import { EntityApi } from "./EntityApi";
 import { claimLease, createLeasedEntity } from "./EntityClient";
 import { LeaseeApi } from "./LeaseeApi";
 import { setEntity } from "./setEntity";
-import { AuthTuple, Cache, EntityTuple, LeaseOptions, PathElement } from "./types";
+import { AuthTuple, Cache, DocChangeEvent, DocErrorEvent, EntityTuple, LeaseOptions, PathElement } from "./types";
 
 /** The key under which the authenticated user is stored in the EntityCache */
 export const CURRENT_USER = 'currentUser';
@@ -45,11 +45,11 @@ export interface DocListenerOptions<TServer, TFinal=TServer> {
 
     /**
      * A kind of event handler that allows you to transform the
-     *  raw data received from a Firestore document into a different data shape for
-     *  use in your application. This event handler fires when the document is first
-     *  received from firestore and again whenever data in the document is modified.
-     *  Unlike other event handlers, this one returns a value &ndash; the transformed
-     *  document data.
+     * raw data received from a Firestore document into a different data shape for
+     * use in your application. This event handler fires when the document is first
+     * received from Firestore and again whenever data in the document is modified.
+     * Unlike other event handlers, this one returns a value &ndash; the transformed
+     * document data.
      * 
      * #### Example
      * Suppose a "city" document in Firestore looks like this:
@@ -81,33 +81,56 @@ export interface DocListenerOptions<TServer, TFinal=TServer> {
      * ```
      * A document having this structure matches the `ClientCity` type.
      * 
-     * To convert a `ServerCity` into a `ClientCity`, we introduce the following transform.
+     * To convert a `ServerCity` into a `ClientCity`, we introduce the following 
+     * transform handler.
      * ```typescript
-     *  function cityTransform(api: LeaseeApi, serverData: ServerCity, path: string[]): ClientCity {
-     *     const councillors = Object.values(serverData.councillors);
-     *     councillors.sort( (a, b) => a.name.localeCompare(b.name) );
+     *  function cityTransform(event: DocChangeEvent<ServerCity>): ClientCity {
+     *      const serverData = event.data;
+     *      const path = event.path;
+     *      const councillors = Object.values(serverData.councillors);
+     *      councillors.sort( (a, b) => a.name.localeCompare(b.name) );
      * 
-     *     return {
-     *         id: path[path.length-1],
-     *         cityName: serverData.cityName,
-     *         councillors
-     *     }
-     * }
+     *      return {
+     *          id: path[path.length-1],
+     *          cityName: serverData.cityName,
+     *          councillors
+     *      }
+     *  }
      * ```
      * The application would then use `cityTransform` as the value of the `transform` handler.
      * 
-     * @param api A LeaseeApi instance
-     * @param serverData The raw data contained in the Firestore document
-     * @param path The path to the document in Firestore.
+     * @param event The event that fired
+     * @typeParam TServer The type of data stored in the Firestore document
      * @returns The transformed data for storage within the cache, or `undefined` if
      *   the transformed structure relies on other server-side entities that are pending.
      * @throws The transform function may throw an Error if it is impossible to create
      *  the transformed structure due to missing or inconsistent data that it depends upon.
      *  That error will be stored in the cache.
      */
-    transform?: (api: LeaseeApi, serverData: TServer, path: string[]) => TFinal | undefined;
-    onRemove?: (api: LeaseeApi, serverData: TServer, path: string[]) => void;
-    onError?: (api: LeaseeApi, error: Error, path: string[]) => void;
+    transform?: (event: DocChangeEvent<TServer>) => TFinal | undefined;
+
+    /**
+     * An event handler that is called when a document is removed from Firestore
+     * @param event The event that fired when the document was removed
+     * @typeParam TServer The type of data stored in the Firestore document
+     */
+    onRemove?: (event: DocChangeEvent<TServer>) => void;
+
+    /**
+     * An event handler that is called if an error occurs while fetching
+     * the document from Firestore.
+     * @param event The event that fired when the error occurred
+     */
+    onError?: (event: DocErrorEvent) => void;
+
+    /**
+     * Options used to create a Lease for the document data.
+     * A lease is created the first time that 
+     * [useDocListener](../functions/useDocListener.html) is called with a given
+     * `path` parameter and a document listener is started.
+     * Subsequent calls to `useDocListener` with the same path will detect that
+     * a document listener is running, and the `leaseOptions` will be ignored.
+     */
     leaseOptions?: LeaseOptions;
 }
 
@@ -154,7 +177,13 @@ export function startDocListener<
 
                         try {
                             const finalData = transform ?
-                                transform(new LeaseeApi(leasee, entityApi), data, validPath) :
+                                transform({
+                                    api:entityApi,
+                                    leasee,
+                                    data,
+                                    path: validPath,
+                                    change
+                                }) :
                                 data;
     
                             setEntity(entityApi, hashValue, finalData);
@@ -169,7 +198,13 @@ export function startDocListener<
                         setEntity(entityApi, hashValue, null);
                         if (onRemove) {
                             const data = change.doc.data() as TRaw;
-                            onRemove(new LeaseeApi(leasee, entityApi), data, validPath);
+                            onRemove({
+                                api:entityApi,
+                                leasee,
+                                data,
+                                path: validPath,
+                                change
+                            });
                         }
                         break;
                     }
@@ -181,10 +216,13 @@ export function startDocListener<
 
             const onError = options?.onError;
             if (onError) {
-                onError(new LeaseeApi(leasee, entityApi), error, validPath);
+                onError({
+                    api:entityApi,
+                    leasee,
+                    path: validPath,
+                    error
+                });
             }
-
-            
         })
 
         createLeasedEntity(entityApi.getClient(), unsubscribe, hashValue, leasee, options?.leaseOptions);
