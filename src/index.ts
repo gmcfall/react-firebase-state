@@ -50,7 +50,7 @@ export type {
     DocEvent,
     DocChangeEvent,
     DocErrorEvent,
-    EntityClientOptions,
+    EntityApiOptions,
     EntityKey,
     EntityStatus,
     EntityTuple,

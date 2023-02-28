@@ -4,7 +4,7 @@ import { FirebaseApp } from 'firebase/app';
 import React, { useState } from 'react';
 import { EntityClient, createEntityClient, updateEntityClient } from '../../EntityClient';
 import { MutableEntityApi } from '../../MutableEntityApi';
-import { Cache, EntityClientOptions } from '../../types';
+import { Cache, EntityApiOptions } from '../../types';
 
 
 export const FirebaseContext = React.createContext<EntityClient | null>(null);
@@ -29,7 +29,7 @@ export interface FirebaseProviderProps {
     /**
      * Options used to configure the [EntityClient](../classes/EntityClient.html)
      */
-    options?: EntityClientOptions;
+    options?: EntityApiOptions;
 }
 
 /**

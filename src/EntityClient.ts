@@ -4,7 +4,7 @@ import produce from "immer";
 import { Lease } from "./Lease";
 import { MutableEntityApi } from "./MutableEntityApi";
 import { setEntity } from "./setEntity";
-import { Cache, EntityClientOptions, LeaseOptions } from "./types";
+import { Cache, EntityApiOptions, LeaseOptions } from "./types";
 
 const DEFAULT_ABANDON_TIME = 300000;
 
@@ -12,7 +12,7 @@ export function createEntityClient(
     firebaseApp: FirebaseApp,
     cache: Cache,
     setCache: React.Dispatch<React.SetStateAction<Cache>>,
-    options?: EntityClientOptions
+    options?: EntityApiOptions
 ) {
     return new EntityClient(
         firebaseApp,
@@ -105,7 +105,7 @@ export class EntityClient {
      * If the `abandonTime` property is not configured explicitly, a default
      * of 5 minutes will be used as the `abandonTime` value.
      */
-    options: EntityClientOptions;
+    options: EntityApiOptions;
 
     /** @ignore */
     constructor(
@@ -115,7 +115,7 @@ export class EntityClient {
         leases: Map<string, Lease>,
         leaseeLeases: Map<string, Set<Lease>>,
         api: MutableEntityApi,
-        options?: EntityClientOptions
+        options?: EntityApiOptions
     ) {
         this.firebaseApp = firebaseApp;
         this.cache = cache;

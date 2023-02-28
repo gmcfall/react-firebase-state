@@ -164,6 +164,9 @@ export function useDocListener<
 /**
  * An object that encapsulates optional event handlers that fire
  * when the authenticated user's state changes.
+ * 
+ * These options may be passed to the [useAuthListener](../functions/useAuthListener.html)
+ * hook.
  */
 export interface AuthOptions<Type=User> {
 

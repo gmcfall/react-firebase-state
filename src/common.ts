@@ -32,7 +32,8 @@ export class IncompatibleIdentityProviderError extends Error {
 
 
 /**
- * Options passed to the [useDocListener](../functions/useDocListener.html) hook.
+ * Options passed to the [useDocListener](../functions/useDocListener.html) hook
+ * and the [watchEntity](../functions/watchEntity.html) function.
  * 
  * @typeParam TServer The type of data stored in the Firebase document.
  * @typeParam TFinal The type of data returned by the `transform` handler, if any.

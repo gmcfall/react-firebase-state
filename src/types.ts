@@ -77,12 +77,17 @@ export interface DocEvent extends ReactFirebaseEvent {
 
 /**
  * An event describing a change to a Firestore document.
+ * 
+ * Handlers for this event are set via the [transform](./DocListenerOptions.html#transform)
+ * and [onRemove](./DocListenerOptions.html#onRemove) properties of the 
+ * [DocListenerOptions](./DocListenerOptions.html) interface.
+ * 
  * @typeParam ServerType The type of data stored in the document
  */
 export interface DocChangeEvent<ServerType> extends DocEvent {
 
     /**
-     * The [DocumentChange](https://firebase.google.com/docs/reference/kotlin/com/google/firebase/firestore/DocumentChange#type()) 
+     * The [DocumentChange](https://firebase.google.com/docs/reference/kotlin/com/google/firebase/firestore/DocumentChange) 
      * received by the document listener.
      */
     change: DocumentChange<DocumentData>;
@@ -93,6 +98,9 @@ export interface DocChangeEvent<ServerType> extends DocEvent {
 
 /**
  * An event that fires when the state of the current user changes
+ * 
+ * Handlers for this event are set via the [transform](./AuthOptions.html#transform)
+ * property of the [AuthOptions](./AuthOptions.html) interface.
  */
 export interface UserChangeEvent extends ReactFirebaseEvent {
 
@@ -107,6 +115,9 @@ export interface UserChangeEvent extends ReactFirebaseEvent {
  * There are two scenarios when this event fires:
  * 1. When the auth listener starts up and determines that the user is not signed in.
  * 2. When the user explicitly signs out.
+ * 
+ * Handlers for this event are set via the [onSignedOut](./AuthOptions.html#onSignedOut) property
+ * of the [AuthOptions](./AuthOptions.html) interface.
  */
 export interface UserSignedOutEvent extends ReactFirebaseEvent {
 
@@ -115,6 +126,9 @@ export interface UserSignedOutEvent extends ReactFirebaseEvent {
 /**
  * An event that fires if the Auth listener encounters an error
  * while listening for user state changes.
+ * 
+ * Handlers for this event are defined by the  [onError](./AuthOptions.html#onError)
+ * property of the [AuthOptions](./AuthOptions.html) interface.
  */
 export interface AuthErrorEvent extends ReactFirebaseEvent {
     /** The error that occurred */
@@ -124,6 +138,9 @@ export interface AuthErrorEvent extends ReactFirebaseEvent {
 /**
  * An event that fires if the document listener receives an error
  * while fetching a document from Firestore.
+ * 
+ * Handlers for this event are defined by the [onError](./DocListenerOptions.html#onError)
+ * property of the [DocListenerOptions](./DocListenerOptions.html) interface.
  */
 export interface DocErrorEvent extends DocEvent {
 
@@ -145,11 +162,11 @@ export interface LeaseOptions {
     abandonTime?: number;
 }
 /**
- * Options for configuring the [EntityClient](../classes/EntityClient.html)
+ * Options for configuring the [EntityApi](./EntityApi.html)
  * Currently, these options consist of default values used when configuring
  * Leases.
  */
-export interface EntityClientOptions extends LeaseOptions {
+export interface EntityApiOptions extends LeaseOptions {
 
 }
 
