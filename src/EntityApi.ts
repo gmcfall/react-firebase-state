@@ -44,6 +44,12 @@ import {EntityClient} from "./EntityClient";
  * Components invoke the [useEntityApi](../functions/useEntityApi) hook to
  * get an `EntityApi` instance.
  * 
+ * In addition, the following events have an `api` property that contains the `EntityApi` instance.
+ * - [AuthErrorEvent](./AuthErrorEvent.html)
+ * - [DocChangeEvent](./DocChangeEvent.html)
+ * - [DocErrorEvent](./DocErrorEvent.html)
+ * - [UserChangeEvent](./UserChangeEvent.html)
+ * - [UserSignedOutEvent](./UserSignedOutEvent.html)
  * 
  * #### Entity Keys
  * There is one, application-wide cache that stores server-side and client-side 

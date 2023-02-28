@@ -94,12 +94,3 @@ export function setEntity(
         cache[hashValue] = value;
     }
 }
-
-/**
- * Put a custom user entity into the cache.
- * @param entityProvider An EntityApi instance or the cache
- * @param customUser The custom user entity
- */
-export function setCurrentUser(entityProvider: EntityApi | Cache, customUser: unknown) {
-    setEntity(entityProvider, CURRENT_USER, customUser);
-}
