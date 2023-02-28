@@ -1,3 +1,4 @@
+import { User } from "firebase/auth";
 import { DocumentChange, DocumentData } from "firebase/firestore";
 import { EntityApi } from "./EntityApi";
 import { Lease } from "./Lease";
@@ -45,11 +46,7 @@ export type Cache = Record<string, Entity>;
 
 export type EntityKey = readonly unknown[];
 
-/**
- * An event that fires while listening for changes
- * to a given Firestore document.
- */
-export interface DocEvent {
+export interface ReactFirebaseEvent {
     /**
      * The EntityApi instance
      */
@@ -61,6 +58,13 @@ export interface DocEvent {
      * See {@link Lease} for a discussion about claims.
      */
     leasee: string;
+}
+
+/**
+ * An event that fires while listening for changes
+ * to a given Firestore document.
+ */
+export interface DocEvent extends ReactFirebaseEvent {
 
     /** 
      * The path to the document in Firestore.
@@ -85,6 +89,36 @@ export interface DocChangeEvent<ServerType> extends DocEvent {
 
     /** The document data cast to the ServerType */
     data: ServerType;
+}
+
+/**
+ * An event that fires when the state of the current user changes
+ */
+export interface UserChangeEvent extends ReactFirebaseEvent {
+
+    /**
+     * The user whose state changed
+     */
+    user: User;
+}
+
+/**
+ * An event that fires when it is known that the user is signed out.
+ * There are two scenarios when this event fires:
+ * 1. When the auth listener starts up and determines that the user is not signed in.
+ * 2. When the user explicitly signs out.
+ */
+export interface UserSignedOutEvent extends ReactFirebaseEvent {
+
+}
+
+/**
+ * An event that fires if the Auth listener encounters an error
+ * while listening for user state changes.
+ */
+export interface AuthErrorEvent extends ReactFirebaseEvent {
+    /** The error that occurred */
+    error: Error;
 }
 
 /**

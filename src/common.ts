@@ -1,8 +1,6 @@
 import { collection, documentId, getFirestore, onSnapshot, query, where } from "firebase/firestore";
-import produce from 'immer';
 import { EntityApi } from "./EntityApi";
 import { claimLease, createLeasedEntity } from "./EntityClient";
-import { LeaseeApi } from "./LeaseeApi";
 import { setEntity } from "./setEntity";
 import { AuthTuple, Cache, DocChangeEvent, DocErrorEvent, EntityTuple, LeaseOptions, PathElement } from "./types";
 

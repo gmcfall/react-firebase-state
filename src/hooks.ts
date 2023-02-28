@@ -4,10 +4,9 @@ import { CURRENT_USER, DocListenerOptions, lookupAuthTuple, lookupEntityTuple, s
 import { FirebaseContext } from "./components/FirebaseContext/FirebaseContext";
 import { EntityApi } from "./EntityApi";
 import { createLeasedEntity } from "./EntityClient";
-import { LeaseeApi } from "./LeaseeApi";
 import { releaseAllClaims } from "./releaseAllClaims";
 import { setEntity } from "./setEntity";
-import { AuthTuple, AuthTupleOrIdle, EntityKey, EntityTuple, PathElement } from "./types";
+import { AuthErrorEvent, AuthTuple, AuthTupleOrIdle, EntityKey, EntityTuple, PathElement, UserChangeEvent, UserSignedOutEvent } from "./types";
 import { hashEntityKey, validateKey } from "./util";
 
 
@@ -169,10 +168,10 @@ export function useDocListener<
 export interface AuthOptions<Type=User> {
 
     /** 
-     * An event handler that fires when the user is initially signed in 
+     * An event handler called when the user is initially signed in 
      * and then later when any of the User properties change.
      * 
-     * Typically, this handler will transform the supplied `User` object
+     * Typically, this handler will transform the supplied Firebase `User` object
      * into a custom structure that merges the Firebase User with data from other
      * sources.  If the other data is not yet avalable, the `transform` handler 
      * should return `undefined` to signal that construction of the custom user 
@@ -181,7 +180,7 @@ export interface AuthOptions<Type=User> {
      * The `transform` handler may also be used as a trigger that produces 
      * side-effects without altering the structure of the user object. In that
      * case, after triggering the side-effects, the `transform` handler simply 
-     * returns the `user` that was supplied as the second parameter.
+     * returns the `user` that was supplied in the event.
      * 
      * #### Example
      * ```typescript
@@ -208,8 +207,8 @@ export interface AuthOptions<Type=User> {
      *      langCode: string
      *  }
      * 
-     *  function userTransform(api: LeaseeApi, user: User) {
-     * 
+     *  function userTransform(event: UserChangeEvent) {
+     *      const user = event.user;
      *      [preferences, preferencesError] = watchEntity(
      *          api, api.leasee, ["preferences", user.uid],
      *          {transform: userPreferencesTransform}
@@ -217,7 +216,7 @@ export interface AuthOptions<Type=User> {
      * 
      *      if (preferencesError) {
      *          throw new Error(
-     *              "Failed to create customUser", {cause: preferencesError}
+     *              "Failed to create CustomUser", {cause: preferencesError}
      *          );
      *      }
      * 
@@ -231,11 +230,10 @@ export interface AuthOptions<Type=User> {
      *      } as CustomUser
      *  }
      * 
-     *  function userPreferencesTransform(
-     *      api: LeaseeApi, 
-     *      preferences: UserPreferences, 
-     *      path: string[]
-     *  ) {
+     *  function userPreferencesTransform(event: DocChangeEvent<UserPreferences>) {
+     *      const api = event.api;
+     *      const path = event.path;
+     *      const preferences = event.data;
      *      const auth = getAuth(api.firebaseApp);
      *      const user = auth.currentUser;
      *      const userUid = path[path.length-1];
@@ -248,16 +246,16 @@ export interface AuthOptions<Type=User> {
      *  }
      * ```
      */
-    transform?: (api: LeaseeApi, user: User) => Type | undefined;
+    transform?: (event: UserChangeEvent) => Type | undefined;
 
     /** 
-     * A event handler that fires if an error occurs while listening 
+     * A event handler called if an error occurs while listening 
      * to state changes to the authenticated user. 
      */
-    onError?: (api: LeaseeApi, error: Error) => void;
+    onError?: (event: AuthErrorEvent) => void;
 
-    /** An event handler that fires when it is known that the user is not signed in */
-    onSignedOut?: (api: LeaseeApi) => void;
+    /** An event handler called when it is known that the user is not signed in */
+    onSignedOut?: (event: UserSignedOutEvent) => void;
 }
 
 
@@ -331,9 +329,12 @@ export function useAuthListener<UserType = User>(options?: AuthOptions<UserType>
             const auth = getAuth(client.firebaseApp);
             const unsubscribe = onAuthStateChanged(auth, (user) => {
                 if (user) {
-                    const api = new LeaseeApi(CURRENT_USER, entityApi);
                     try {
-                        const data = transform ? transform(api, user) : user;
+                        const data = transform ? transform({
+                            api: entityApi,
+                            leasee: CURRENT_USER,
+                            user
+                        }) : user;
                         setEntity(entityApi, CURRENT_USER, data);
                     } catch (transformError) {
                         setEntity(entityApi, CURRENT_USER, transformError)
@@ -341,15 +342,13 @@ export function useAuthListener<UserType = User>(options?: AuthOptions<UserType>
                 } else {
                     setEntity(entityApi, CURRENT_USER, null);
                     if (onSignedOut) {
-                        const api = new LeaseeApi(CURRENT_USER, entityApi);
-                        onSignedOut(api);
+                        onSignedOut({api: entityApi, leasee: CURRENT_USER});
                     }
                 }
             }, (error) => {
                 setEntity(entityApi, CURRENT_USER, error);
                 if (onError) {
-                    const api = new LeaseeApi(CURRENT_USER, entityApi);
-                    onError(api, error);
+                    onError({api: entityApi, error, leasee: CURRENT_USER});
                 }
             })
             // Create a `PendingTuple` and add it to the cache

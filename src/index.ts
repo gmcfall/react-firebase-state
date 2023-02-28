@@ -8,7 +8,6 @@
 export { EntityClient } from "./EntityClient";
 export type { EntityApi } from "./EntityApi";
 export type { Lease } from "./Lease";
-export { LeaseeApi } from "./LeaseeApi";
 
 export { FirebaseProvider } from "./components/FirebaseContext";
 
@@ -42,6 +41,7 @@ export { setEntity } from "./setEntity"
 export type { DocListenerOptions, CURRENT_USER } from "./common";
 
 export type {
+    AuthErrorEvent,
     AuthStatus,
     AuthTuple,
     AuthTupleOrIdle,
@@ -61,7 +61,10 @@ export type {
     PendingTuple,
     SignedInTuple,
     SignedOutTuple,
+    ReactFirebaseEvent,
     RemovedTuple,
     SuccessTuple,
-    Unsubscribe
+    Unsubscribe,
+    UserChangeEvent,
+    UserSignedOutEvent
 } from "./types";
