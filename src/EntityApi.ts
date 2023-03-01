@@ -12,46 +12,57 @@ import {EntityClient} from "./EntityClient";
  * - A collection of [leases](../classes/Lease.html) which dictate when entities 
  *   are eligible for eviction from the cache. 
  * 
- * Most capabilities of the `react-firestore-state` library are exposed through 
- * hooks and functions that leverage an EntityApi instance to do their work.
+ * Capabilities of the `react-firestore-state` library are exposed through 
+ * hooks, functions, and events that leverage an EntityApi instance to do their work.
  * 
- * #### Hooks
+ * ### Hooks
  * The EntityApi supports the following hooks:
  * - [useAuthListener](../functions/useAuthListener)
  * - [useAuthUser](../functions/useAuthUser)
- * - [useDocListener](../functions/useDocListener)
  * - [useData](../functions/useData)
+ * - [useDocListener](../functions/useDocListener)
  * - [useEntity](../functions/useEntity)
  * - [useEntityApi](../functions/useEntityApi)
  * - [useReleaseAllClaims](../functions/useReleaseAllClaims)
  * 
  * ### Functions
- * The following fuctions take an `EntitityApi` instance as the
- * first argument.
- * - [watchEntity](../functions/watchEntity.html)
- * - [setLeasedEntity](../functions/setLeasedEntity.html)
+ * The `EntityApi` supports the following functions:
  * - [getAuthUser](../functions/getAuthUser.html)
- * - [setAuthUser](../functions/setAuthUser.html)
  * - [getEntity](../functions/getEntity.html)
- * - [setEntity](../functions/setEntity.html)
+ * - [releaseAllClaims](../functions/releaseAllClaims.html)
  * - [releaseClaim](../functions/releaseClaim.html)
+ * - [setAuthUser](../functions/setAuthUser.html)
+ * - [setEntity](../functions/setEntity.html)
+ * - [setLeasedEntity](../functions/setLeasedEntity.html)
+ * - [watchEntity](../functions/watchEntity.html)
+ * 
+ * ### Events
+ * The following events are supported by and provide access to the `EntityApi` 
+ * instance:
  * 
  * Some of these functions also accept the local cache as the first argument so they
  * can be used inside the {@link EntityApi.mutate} method.
- * 
- * #### Getting an EntityApi instance
- * 
- * Components invoke the [useEntityApi](../functions/useEntityApi) hook to
- * get an `EntityApi` instance.
- * 
- * In addition, the following events have an `api` property that contains the `EntityApi` instance.
  * - [AuthErrorEvent](./AuthErrorEvent.html)
  * - [DocChangeEvent](./DocChangeEvent.html)
  * - [DocErrorEvent](./DocErrorEvent.html)
+ * - [DocRemovedEvent](./DocRemovedEvent.html)
  * - [UserChangeEvent](./UserChangeEvent.html)
  * - [UserSignedOutEvent](./UserSignedOutEvent.html)
  * 
- * #### Entity Keys
+ * ### Initializing the EntityApi instance
+ * The EntityApi instance is initialized when you add the 
+ * [FirebaseProvider](../functions/FirebaseProvider.html) to your application's
+ * component hierarchy.
+ * 
+ * ### Getting an EntityApi instance
+ * 
+ * Components invoke the [useEntityApi](../functions/useEntityApi) hook to
+ * get the `EntityApi` instance.
+ * 
+ * In addition, the events listed above have an `api` property that contains 
+ * the `EntityApi` instance.
+ * 
+ * ### Entity Keys
  * There is one, application-wide cache that stores server-side and client-side 
  * entities.
  * 
@@ -72,9 +83,7 @@ import {EntityClient} from "./EntityClient";
  * ```
  * where `userUid` is the document id, which in this case happens to be a user's `uid` value.
  * 
- * #### Using the Cache
- * 
-
+ * ### Using the Cache
  * 
  * Functions that modify the cache (such as [setAuthUser](../functions/setAuthUser.html),
  * [setEntity](../functions/setEntity.html) and
@@ -151,7 +160,7 @@ export interface EntityApi {
      * ```
      * In this example, the `app` parameter of the mutator function is declared to be of
      * type `SampleApp`.  When the mutator function executes, it receives the local cache
-     * as the value of the `app` parameter but that parameter value is cast to the `SampleApp` 
+     * as the value of the `app` parameter, but that parameter value is cast to the `SampleApp` 
      * type so that you can manipulate client-side state in a type-safe way.  Because the 
      * `app` parameter is just an alias for the cache, you can also access server-side entities 
      * from within the `mutate` function.

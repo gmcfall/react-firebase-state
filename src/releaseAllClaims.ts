@@ -4,7 +4,7 @@ import { EntityApi } from "./EntityApi";
  * Release all claims held by a given component.
  * 
  * This function is rarely used. Most components will utilize
- * the [useReleaseAllClaims](./useReleaseAllClaims) hook instead.
+ * the [useReleaseAllClaims](./useReleaseAllClaims.html) hook instead.
  * 
  * `releaseAllClaims` provides the same functionality as the hook, but 
  * it is designed for use within `useEffect` and event handlers.

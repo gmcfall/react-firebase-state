@@ -44,7 +44,6 @@ export type {
     AuthErrorEvent,
     AuthStatus,
     AuthTuple,
-    AuthTupleOrIdle,
     Entity,
     Cache,
     DocEvent,

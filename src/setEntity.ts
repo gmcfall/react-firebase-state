@@ -53,11 +53,10 @@ import { CURRENT_USER } from "./common";
  * 
  *          // ... Make client-side state changes here ...
  * 
- *          setEntity(app, ["preferences", userUid], preferencesData);
+ *          setEntity(app as Cache, ["preferences", userUid], preferencesData);
  *      }
  *  )
  * ```
- * In this example, `app` is the cache object cast as `ClientSideStateType`.
  * 
  * @param entityProvider An EntityApi instance or the cache
  * @param key The key under which the value is stored in the cache

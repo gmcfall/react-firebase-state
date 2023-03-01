@@ -3,7 +3,7 @@ import { CURRENT_USER, DocListenerOptions, lookupAuthTuple, lookupEntityTuple, s
 import { EntityApi } from "./EntityApi";
 import { claimLease, EntityClient, removeLeaseeFromLease } from "./EntityClient";
 import { setEntity } from "./setEntity";
-import { AuthTupleOrIdle, Cache, EntityKey, EntityTuple, LeaseOptions, PathElement } from "./types";
+import { AuthTuple, Cache, EntityKey, EntityTuple, IdleTuple, LeaseOptions, PathElement } from "./types";
 import { hashEntityKey, toHashValue } from "./util";
 
 
@@ -55,7 +55,7 @@ export function watchEntity<
  * will create one with the given options.
  * 
  * This function makes a claim on the entity by adding the specified
- * leasee into the Lease's ledger.
+ * leasee to the Lease's ledger.
  * 
  * See the [Lease documentation](../classes/Lease.html) for a discussion
  * about claims.
@@ -117,11 +117,12 @@ export function setLeasedEntity(
  * ```
  * @param entityProvider An EntityApi instance or the Cache.
  * @typeParam UserType The user type. By default, this is the `User` type from Firebase Auth.
- *      The data value in the returned EntityTuple is cast to this type.
- * @returns An EntityTuple for the authenticated user.
+ *      The data value in the returned tuple is cast to this type.
+ * @returns An `AuthTuple` for the authenticated user or `IdleTuple` if an auth listener
+ * has not been started.
  */
 export function getAuthUser<UserType=User>(entityProvider: EntityApi | Cache): 
-    AuthTupleOrIdle<UserType> 
+    AuthTuple<UserType> | IdleTuple
 {
     if ("getClient" in entityProvider) {
         const api = entityProvider as EntityApi;
@@ -145,14 +146,23 @@ export function getAuthUser<UserType=User>(entityProvider: EntityApi | Cache):
  * 
  * The value is placed into the cache under the {@link CURRENT_USER} key.
  * 
- * This function is rarely used. Typically, applications make changes to the
- * current user, and let the auth listener automatically update the cache asynchronously.
- * 
- * However, if your React application is using a custom user type and latency is an issue,
- * you can use `setAuthUser` to update the cache immediately as shown in the following example.
+ * Applications that use the default user provided by Firebase won't have
+ * a need for this function. They can simply let the auth listener automatically 
+ * update the cache asynchronously.
  * 
  * #### Example 1
- * In this example, the application defines a custom user type that extends the Firebase user
+ * 
+ * Applications that use a *custom* user object will typically call `setUser`
+ * from within a `transform` handler.  For more information about custom users
+ * and an example illustrating the usage pattern, see the 
+ * [transform](../interfaces/AuthOptions.html#transform) documentation.
+ * 
+ * Most applications with a custom user will follow this usage pattern.
+ * However, if latency is an issue, they may also call `setAuthUser` to update the cache 
+ * immediately as shown in the following example.
+ * 
+ * #### Example 2
+ * In this example, the application defines a custom user type that enhances the Firebase user
  * with a `langCode` property for the user's preferred language. The snippet shows how one
  * might update `displayName` and `langCode` from a *UserProfileForm*. When the form is
  * submitted, an event handler uses `setAuthUser` to update the value of the current user 
@@ -178,7 +188,11 @@ export function getAuthUser<UserType=User>(entityProvider: EntityApi | Cache):
  *              updateDoc(docRef, {langCode});
  *          }
  * 
- *          // Update the user object in the cache so it is available immediately.
+ *          // Most applications will allow a `transform` handler to
+ *          // update the cache as discussed in Example 1 above.
+ *          // However, if latency is an issue, you can update the user
+ *          // object in the cache immediately as shown here:
+ * 
  *          const newUser = {...currentUser, displayName, langCode};
  *          setAuthUser(api, newUser);
  *      }
@@ -186,11 +200,8 @@ export function getAuthUser<UserType=User>(entityProvider: EntityApi | Cache):
  *      // ... The rest of this component's implementation is omitted for brevity ...
  *  }
  * ```
- * For more information about custom user objects, see the documentation for the 
- * [transform](../interfaces/AuthOptions.html#transform) handler in
- * [AuthOptions](../interfaces/AuthOptions.html).
- * 
- * #### Example 2
+ * &nbsp;
+ * #### Example 3
  * As shown below, it is possible to invoke `setAuthUser` from inside the {@link EntityApi.mutate}
  * method of {@link EntityApi}.
  * ```typescript
@@ -228,6 +239,7 @@ function resolveCache(value: object) {
  * except it is designed for use inside `useEffect` and event handlers.
  * 
  * #### Example 1
+ * This example invokes `getEntity` from within an event handler.
  * ```typescript
  *  function SomeComponent({cityId}) {
  *      const api = useEntityApi();
@@ -242,7 +254,7 @@ function resolveCache(value: object) {
  * ```
  * &nbsp;
  * #### Example 2
- * You can also invoke `getEntity` from within the {@link EntityApi.mutate} transform
+ * This example invokes `getEntity` from within the {@link EntityApi.mutate}
  * method of {@link EntityApi} as shown below.
  * ```typescript
  *  entityApi.mutate(
@@ -261,7 +273,7 @@ function resolveCache(value: object) {
  * @param entityKey The key under which the entity is stored in the cache
  * @typeParam Type The entity's type. The data value in the returned EntityTuple is
  *  cast to this type.
- * @returns An EnityTuple describing the requested entity.
+ * @returns An EntityTuple describing the requested entity.
  */
 export function getEntity<Type>(entityProvider: EntityApi | Cache, key: string | EntityKey): EntityTuple<Type> {
     const hashValue = toHashValue(key);
@@ -293,13 +305,13 @@ export interface TypedClientStateGetter<T> {
 }
 
 /**
- * Release the claim that a leasee has on a specific entity within the cache
+ * Release the claim that a leasee has on a specific entity within the cache.
  * 
  * See the documentation for the [Lease](../classes/Lease.html) class for
  * a discussion about claims.
  * 
  * @param api An EntityApi instance
- * @param leasee The name of the leasee
+ * @param leasee The name of the component holding the claim
  * @param key The key under which the entity is stored in the cache
  */
 export function releaseClaim(api: EntityApi, leasee: string, key: string | EntityKey) {

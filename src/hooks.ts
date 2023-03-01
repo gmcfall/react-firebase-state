@@ -6,7 +6,7 @@ import { EntityApi } from "./EntityApi";
 import { createLeasedEntity } from "./EntityClient";
 import { releaseAllClaims } from "./releaseAllClaims";
 import { setEntity } from "./setEntity";
-import { AuthErrorEvent, AuthTuple, AuthTupleOrIdle, EntityKey, EntityTuple, PathElement, UserChangeEvent, UserSignedOutEvent } from "./types";
+import { AuthErrorEvent, AuthTuple, EntityKey, EntityTuple, IdleTuple, PathElement, UserChangeEvent, UserSignedOutEvent } from "./types";
 import { hashEntityKey, validateKey } from "./util";
 
 
@@ -14,7 +14,15 @@ import { hashEntityKey, validateKey } from "./util";
 export const AUTH_USER_LEASE_OPTIONS = {abandonTime: Number.POSITIVE_INFINITY};
 
 /**
- * Use a snapshot listener to retrieve data from a Firestore document.
+ * A hook that uses a snapshot listener to retrieve data from a Firestore document.
+ * 
+ * This hook will create a `Lease` if one does not already exist for the requested entity, 
+ * and it will make a claim on that entity. See [Lease](..classes/Lease.html) for more
+ * information about claims.
+ * 
+ * Components that use this hook should also call `useReleaseAllClaims`. 
+ * See [useReleaseAllClaims](../functions/useReleaseAllClaims.html) for a discussion about the
+ * importance of releasing claims to avoid memory leaks.
  * 
  * #### Example 1
  * This example illustrates basic usage without any optional parameters.
@@ -112,9 +120,6 @@ export const AUTH_USER_LEASE_OPTIONS = {abandonTime: Number.POSITIVE_INFINITY};
  * parameter because the Typescript complier can infer its value.
  * 
  * See {@link DocListenerOptions} for more information about these optional parameters.
- * 
- * See [useReleaseAllClaims](../functions/useReleaseAllClaims.html) for a discussion about the
- * importance of releasing claims to avoid memory leaks.
  * 
  * @param leasee The name of the component.
  * 
@@ -314,6 +319,12 @@ export interface AuthOptions<Type=User> {
  * 
  * See {@link AuthOptions} for more information about these optional parameters.
  * 
+ * @typeParam UserType By default this is the Firebase User object. If your application
+ *  uses a *custom* user type, the Typescript compiler will infer the type from your
+ *  `transform` handler. For more information about custom users, see the 
+ * [transform](../interfaces/AuthOptions.html#transform) handler in the `AuthOptions` 
+ * interface.
+ * 
  * @param options An object containing optional event handlers
  */
 export function useAuthListener<UserType = User>(options?: AuthOptions<UserType>) : AuthTuple<UserType> {
@@ -363,6 +374,10 @@ export function useAuthListener<UserType = User>(options?: AuthOptions<UserType>
     return lookupAuthTuple<UserType>(client.cache);
 }
 
+/**
+ * Get the application-wide `EntityApi` instance initialized by the 
+ * [FirebaseProvider](./FirebaseProvider.html)
+ */
 export function useEntityApi(): EntityApi {
     const client = useClient();
     return client.api;
@@ -371,9 +386,16 @@ export function useEntityApi(): EntityApi {
 /**
  * Get information about the currently authenticated user.
  * 
+ * @typeParam UserType By default, this is the Firebase User type. If your application
+ *  uses a *custom* user type, set this template parameter to that type.
+ * 
+ * For more information about custom users, see the 
+ * [transform](../interfaces/AuthOptions.html#transform) handler in the `AuthOptions` 
+ * interface.
+ * 
  * @returns 
  */
-export function useAuthUser<UserType=User>(): AuthTupleOrIdle<UserType> {
+export function useAuthUser<UserType=User>(): AuthTuple<UserType> | IdleTuple{
     const client = useClient();
 
     const lease = client.leases.get(CURRENT_USER);
@@ -387,6 +409,7 @@ export function useAuthUser<UserType=User>(): AuthTupleOrIdle<UserType> {
 /**
  * Get information about an entity stored in the cache.
  * @param key The key under which the entity is stored in the cache
+ * @typeParam Type The entity's type, `any` by default.
  * @returns 
  */
 export function useEntity<Type=any>(key: EntityKey) {

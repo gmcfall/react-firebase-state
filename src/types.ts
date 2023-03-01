@@ -33,19 +33,32 @@ export type AuthTuple<UserType> = (
     ErrorTuple
 )
 
-export type AuthTupleOrIdle<UserType> = (
-    AuthTuple<UserType> |
-    IdleTuple
-)
-
 export type PathElement = string | undefined;
 
 export type Unsubscribe = () => void;
 
+/**
+ * The local cache managed by the [EntityApi](../interfaces/EntityApi.html).
+ * For more information about the cache, see also [Lease](../classes/Lease.html)
+ */
 export type Cache = Record<string, Entity>;
 
+/**
+ * A key for an entity consisting of an array of `unknown` values.
+ * 
+ * The current version of the `react-firebase-state` library
+ * only uses `EntityKey`s given by an array of strings that
+ * represent the path to a document in Firestore.
+ * 
+ * More general types of keys may be used in the future to support
+ * Firebase query listeners.
+ */
 export type EntityKey = readonly unknown[];
 
+/**
+ * The base interface for all events supported by
+ * the `react-firebase-state` library.
+ */
 export interface ReactFirebaseEvent {
     /**
      * The EntityApi instance
@@ -61,7 +74,7 @@ export interface ReactFirebaseEvent {
 }
 
 /**
- * The base interface for events fires while listening for changes
+ * The base interface for events that fire while listening for changes
  * to a given Firestore document.
  */
 export interface DocEvent extends ReactFirebaseEvent {

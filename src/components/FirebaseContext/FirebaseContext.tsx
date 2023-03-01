@@ -2,8 +2,7 @@
 
 import { FirebaseApp } from 'firebase/app';
 import React, { useState } from 'react';
-import { EntityClient, createEntityClient, updateEntityClient } from '../../EntityClient';
-import { MutableEntityApi } from '../../MutableEntityApi';
+import { createEntityClient, EntityClient, updateEntityClient } from '../../EntityClient';
 import { Cache, EntityApiOptions } from '../../types';
 
 
@@ -27,7 +26,7 @@ export interface FirebaseProviderProps {
     initialState?: object;
 
     /**
-     * Options used to configure the [EntityClient](../classes/EntityClient.html)
+     * Contains default settings used when creating new [Leases](../classes/Lease.html)
      */
     options?: EntityApiOptions;
 }
@@ -39,17 +38,12 @@ export interface FirebaseProviderProps {
  * Internally, it uses a [React Context](https://reactjs.org/docs/context.html)
  * with an {@link EntityClient} as its value.
  * 
- * Child components do not access the context directly. Instead they use hooks
- * including:
- * - [useAuthListener](../functions/useAuthListener.html)
- * - [useAuthUser](../functions/useAuthUser.html)
- * - [useDocListener](../functions/useDocListener.html)
- * - [useEntity](../functions/useEntity.html)
- * - [useEntityApi](../functions/useEntityApi.html)
+ * Child components do not access the context or client directly. 
+ * Instead they use hooks, functions and events supported by the `EntityApi`.
+ * See the [EntityApi](../interfaces/EntityApi.html) documentation for details.
  * 
- * A React application should include only one `FirebaseProvider` component
- * that wraps all components that that use the `react-firebase-state`
- * library.
+ * Your React application should include only one `FirebaseProvider` component
+ * which wraps all the other components that use the `EntityApi`.
  * 
  * ### Usage
  * 
@@ -95,9 +89,7 @@ export interface FirebaseProviderProps {
  *          </FirebaseProvider>
  *      )
  *  }
-```       
- * 
- * 
+```  
  * @param props
  */
 export function FirebaseProvider(props: FirebaseProviderProps) {
