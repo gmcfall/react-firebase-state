@@ -50,6 +50,8 @@ export type {
     DocEvent,
     DocChangeEvent,
     DocErrorEvent,
+    DocMutationEvent,
+    DocRemovedEvent,
     EntityApiOptions,
     EntityKey,
     EntityStatus,

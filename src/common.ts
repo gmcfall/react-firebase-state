@@ -2,7 +2,7 @@ import { collection, documentId, getFirestore, onSnapshot, query, where } from "
 import { EntityApi } from "./EntityApi";
 import { claimLease, createLeasedEntity } from "./EntityClient";
 import { setEntity } from "./setEntity";
-import { AuthTuple, Cache, DocChangeEvent, DocErrorEvent, EntityTuple, LeaseOptions, PathElement } from "./types";
+import { AuthTuple, Cache, DocChangeEvent, DocErrorEvent, DocRemovedEvent, EntityTuple, LeaseOptions, PathElement } from "./types";
 
 /** The key under which the authenticated user is stored in the EntityCache */
 export const CURRENT_USER = 'currentUser';
@@ -113,7 +113,7 @@ export interface DocListenerOptions<TServer, TFinal=TServer> {
      * @param event The event that fired when the document was removed
      * @typeParam TServer The type of data stored in the Firestore document
      */
-    onRemove?: (event: DocChangeEvent<TServer>) => void;
+    onRemoved?: (event: DocRemovedEvent<TServer>) => void;
 
     /**
      * An event handler that is called if an error occurs while fetching
@@ -156,7 +156,7 @@ export function startDocListener<
     } else { 
         
         const transform = options?.transform;
-        const onRemove = options?.onRemove;
+        const onRemoved = options?.onRemoved;
 
         const collectionName = validPath[0];
         const collectionKeys = validPath.slice(1, validPath.length-1);
@@ -195,9 +195,9 @@ export function startDocListener<
                     case 'removed': {
 
                         setEntity(entityApi, hashValue, null);
-                        if (onRemove) {
+                        if (onRemoved) {
                             const data = change.doc.data() as TRaw;
-                            onRemove({
+                            onRemoved({
                                 api:entityApi,
                                 leasee,
                                 data,

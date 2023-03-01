@@ -75,7 +75,7 @@ export interface FirebaseProviderProps {
  * // The `abandonTime` parameter specifies the number of milliseconds that a leased
  * // entity can linger in the cache after it has been abandonded. The default
  * // `abandonTime` value is `300000` (5 minutes).
- * // you can override this value by passing `options` to the FirebaseProvider.
+ * // You can override this value by passing `options` to the FirebaseProvider.
  * 
  * const options = {
  *     abandonTime: 120000 // 2 minutes

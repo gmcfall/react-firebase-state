@@ -61,7 +61,7 @@ export interface ReactFirebaseEvent {
 }
 
 /**
- * An event that fires while listening for changes
+ * The base interface for events fires while listening for changes
  * to a given Firestore document.
  */
 export interface DocEvent extends ReactFirebaseEvent {
@@ -76,15 +76,11 @@ export interface DocEvent extends ReactFirebaseEvent {
 }
 
 /**
- * An event describing a change to a Firestore document.
- * 
- * Handlers for this event are set via the [transform](./DocListenerOptions.html#transform)
- * and [onRemove](./DocListenerOptions.html#onRemove) properties of the 
- * [DocListenerOptions](./DocListenerOptions.html) interface.
+ * The base interface for events that describe a change to a Firestore document.
  * 
  * @typeParam ServerType The type of data stored in the document
  */
-export interface DocChangeEvent<ServerType> extends DocEvent {
+export interface DocMutationEvent<ServerType> extends DocEvent {
 
     /**
      * The [DocumentChange](https://firebase.google.com/docs/reference/kotlin/com/google/firebase/firestore/DocumentChange) 
@@ -94,6 +90,31 @@ export interface DocChangeEvent<ServerType> extends DocEvent {
 
     /** The document data cast to the ServerType */
     data: ServerType;
+}
+
+/**
+ * An event that fires when a document listener first receives the document from
+ * Firestore and later when changes are made to the document.
+ * 
+ * Handlers for this event are set via the [transform](./DocListenerOptions.html#transform)
+ * property of [DocListenerOptions](./DocListenerOptions.html).
+ * 
+ * @typeParam ServerType The type of data stored in the Firestore document
+ */
+export interface DocChangeEvent<ServerType> extends DocMutationEvent<ServerType> {
+
+}
+
+/** 
+ * An event that fires when a document is removed from Firestore.
+ * 
+ * Handlers for this event are set via the [onRemoved](./DocListenerOptions.html#onRemoved)
+ * property of [DocListenerOptions](./DocListenerOptions.html).
+ * 
+ * @typeParam ServerType The type of data stored in the Firestore document
+ */
+export interface DocRemovedEvent<ServerType> extends DocMutationEvent<ServerType> {
+
 }
 
 /**
