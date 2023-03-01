@@ -1,13 +1,26 @@
 {
   "name": "@gmcfall/react-firebase-state",
-  "version": "3.0.0-rc.1",
+  "version": "3.0.0-rc.2",
   "main": "build/index.cjs.js",
   "module": "build/index.esm.js",
   "types": "build/build/index.d.ts",
+  "author": "Greg McFall",
+  "license": "MIT",
+  "homepage": "https://gmcfall.github.io/react-firebase-state-docs/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/gmcfall/react-firebase-state.git"
   },
+  "bugs" : {
+    "type": "git",
+    "url": "https://github.com/gmcfall/react-firebase-state/issues"
+  },
+  "keywords" : [
+    "react",
+    "firebase",
+    "firestore",
+    "state management"
+  ],
   "dependencies": {
     "react-scripts": "5.0.1"
   },
