@@ -20,9 +20,7 @@ export const AUTH_USER_LEASE_OPTIONS = {abandonTime: Number.POSITIVE_INFINITY};
  * and it will make a claim on that entity. See [Lease](..classes/Lease.html) for more
  * information about claims.
  * 
- * Components that use this hook should also call `useReleaseAllClaims`. 
- * See [useReleaseAllClaims](../functions/useReleaseAllClaims.html) for a discussion about the
- * importance of releasing claims to avoid memory leaks.
+ * This hook also releases all claims made by the component when it unmounts.
  * 
  * #### Example 1
  * This example illustrates basic usage without any optional parameters.
@@ -38,8 +36,6 @@ export const AUTH_USER_LEASE_OPTIONS = {abandonTime: Number.POSITIVE_INFINITY};
  *      const [city, cityError, cityStatus] = useDocListener<City>(
  *          "CityComponent", ["cities", cityId]
  *      );
- * 
- *      useReleaseAllClaims("CityComponent");
  * 
  *      switch (cityStatus) {
  *          case "idle" :
@@ -97,8 +93,6 @@ export const AUTH_USER_LEASE_OPTIONS = {abandonTime: Number.POSITIVE_INFINITY};
  *          "CityComponent", ["cities", councillor?.cityId]
  *      );
  * 
- *      useReleaseAllClaims("CityComponent");
- * 
  *      // ...
  *  }
  * ```
@@ -152,6 +146,7 @@ export function useDocListener<
 ) : EntityTuple<TFinal> {
 
     const client = useClient();
+    const api = client.api;
 
     const validPath = validatePath(path);
     const hashValue = validPath ? hashEntityKey(validPath) : '';
@@ -162,6 +157,10 @@ export function useDocListener<
         );
 
     }, [leasee, hashValue, client, validPath, options])
+
+    useEffect( () => () => {
+        api.getClient().disownAllLeases(leasee);
+    }, [api, leasee])
 
     return lookupEntityTuple<TFinal>(client.cache, hashValue);
 }
@@ -469,24 +468,30 @@ export function useData<StateType, ReturnType>(selector: (state: StateType) => R
  * A hook that releases all claims held by a given component when 
  * that component unmounts.
  * 
- * To avoid memory leaks, this hook should be invoked by all components 
- * that utilize the [useDocListener](./useDocListener.html) hook.
+ * See [Lease](../classes/Lease.html) for more information about claims.
  * 
- * The `useDocListener` hook makes a *claim* on behalf of the component, and hence
- * the document data will not expire from the cache unless that claim is released.
+ * This hook should be used by components that call 
+ * [watchEntity](./watchEntity) from within `useEffect` or event handlers.
+ * 
+ * Don't forget to call `useReleaseAllClaims` if you invoke `watchEntity` from event 
+ * handlers passed to [DocListenerOptions](../interfaces/DocListenerOptions.html).
  * 
  * #### Example
  * ```typescript
- *      const [city, cityError, cityStatus] = useDocListener<City>(
- *          "CityComponent", ["cities", cityId]
- *      );
+ *  const api = useEntityApi();
  * 
- *      useReleaseAllClaims("CityComponent");
+ *  const handleClick() {
+ *      const [city, cityError, cityStatus] = watchEntity<City>(
+ *          api, "CityComponent", ["cities", cityId]
+ *      );
+ *      // Do something with the data received
+ *  }
+ * 
+ *  useReleaseAllClaims("CityComponent");
  * ```
  * 
- * See [Lease](../classes/Lease.html) for more information about claims.
  * 
- * @param leasee The name of the component
+ * @param leasee The name of a component holding claims on entities in the cache
  */
 export function useReleaseAllClaims(leasee: string) {
     
