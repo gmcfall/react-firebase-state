@@ -38,7 +38,9 @@ export { releaseAllClaims } from "./releaseAllClaims";
 
 export { setEntity } from "./setEntity"
 
-export type { DocListenerOptions, CURRENT_USER } from "./common";
+export type { DocListenerOptions } from "./common";
+
+export { CURRENT_USER } from "./common";
 
 export type {
     AuthErrorEvent,
