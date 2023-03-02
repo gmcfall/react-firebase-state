@@ -1,6 +1,6 @@
 {
   "name": "@gmcfall/react-firebase-state",
-  "version": "3.0.0-rc.2",
+  "version": "3.0.0",
   "main": "build/index.cjs.js",
   "module": "build/index.esm.js",
   "types": "build/build/index.d.ts",
